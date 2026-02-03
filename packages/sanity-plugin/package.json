@@ -5,7 +5,6 @@
     "access": "restricted",
     "registry": "https://registry.npmjs.org/"
   },
-  "private": true,
   "type": "module",
   "exports": {
     ".": {
