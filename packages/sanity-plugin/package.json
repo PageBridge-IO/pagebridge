@@ -1,0 +1,39 @@
+{
+  "name": "@gsc-sanity/sanity-plugin",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas/index.d.ts",
+      "import": "./dist/schemas/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint .",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sanity/icons": "^3.7.4",
+    "@sanity/ui": "^3.1.11",
+    "@swc/helpers": "^0.5.18",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "sanity": "^5.7.0"
+  },
+  "devDependencies": {
+    "@gsc-sanity/eslint-config": "workspace:^",
+    "@gsc-sanity/typescript-config": "workspace:^",
+    "@types/node": "^22.15.3",
+    "@types/react": "19.2.3",
+    "@types/react-dom": "19.2.3",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3"
+  }
+}

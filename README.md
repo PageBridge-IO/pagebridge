@@ -1,28 +1,109 @@
-# Turborepo starter
+# GSC Sanity Connector
 
-This Turborepo starter is maintained by the Turborepo core team.
+Connect Google Search Console data to Sanity CMS for content performance tracking and content refresh recommendations.
 
-## Using this example
+## Features
 
-Run the following command:
+- 📊 **Sync GSC Data**: Fetch search analytics from Google Search Console and store in PostgreSQL
+- 🔗 **URL Matching**: Automatically match GSC URLs to Sanity documents
+- 📉 **Decay Detection**: Detect content decay patterns (position drops, low CTR, traffic decline)
+- ✅ **Refresh Tasks**: Generate actionable refresh tasks in Sanity Studio
+- 📈 **Performance Pane**: View search performance directly in Sanity documents
 
-```sh
-npx create-turbo@latest
-```
-
-## What's inside?
+## Project Structure
 
 This Turborepo includes the following packages/apps:
 
-### Apps and Packages
+### Apps
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+- `cli`: Command-line tool for syncing GSC data
+- `docs`: Documentation site ([Next.js](https://nextjs.org/))
+- `web`: Example web application ([Next.js](https://nextjs.org/))
+
+### Packages
+
+- `@gsc-sanity/core`: Sync engine, decay detection, URL matching
+- `@gsc-sanity/db`: PostgreSQL schema and queries (Drizzle ORM)
+- `@gsc-sanity/sanity-plugin`: Sanity Studio v3 components and schemas
+- `@gsc-sanity/ui`: Shared React component library
+- `@gsc-sanity/eslint-config`: ESLint configurations
+- `@gsc-sanity/typescript-config`: TypeScript configurations
 
 Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 24+
+- pnpm 9+
+- Docker (for local PostgreSQL)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/your-org/gsc-sanity-connector.git
+cd gsc-sanity-connector
+
+# Install dependencies
+pnpm install
+
+# Start local PostgreSQL
+docker compose up -d
+
+# Copy environment variables
+cp .env.example .env.local
+
+# Run database migrations
+pnpm --filter @gsc-sanity/db db:push
+
+# Build all packages
+pnpm build
+```
+
+### Environment Variables
+
+Create a `.env.local` file with the following variables:
+
+```bash
+GOOGLE_SERVICE_ACCOUNT='{"type":"service_account",...}'
+DATABASE_URL='postgresql://postgres:postgres@localhost:5432/gsc_sanity'
+SANITY_PROJECT_ID='your-project-id'
+SANITY_DATASET='production'
+SANITY_TOKEN='sk...'
+SITE_URL='https://your-site.com'
+```
+
+### Usage
+
+#### CLI Sync Command
+
+```bash
+# Sync GSC data for a site
+pnpm --filter @gsc-sanity/cli start sync --site sc-domain:example.com
+
+# Dry run (preview without writing)
+pnpm --filter @gsc-sanity/cli start sync --site sc-domain:example.com --dry-run
+
+# Skip task generation
+pnpm --filter @gsc-sanity/cli start sync --site sc-domain:example.com --skip-tasks
+```
+
+#### Sanity Plugin
+
+Add the plugin to your Sanity Studio configuration:
+
+```ts
+// sanity.config.ts
+import { defineConfig } from "sanity";
+import { gscPlugin } from "@gsc-sanity/sanity-plugin";
+
+export default defineConfig({
+  // ...
+  plugins: [gscPlugin()],
+});
+```
 
 ### Utilities
 
@@ -31,105 +112,36 @@ This Turborepo has some additional tools already setup for you:
 - [TypeScript](https://www.typescriptlang.org/) for static type checking
 - [ESLint](https://eslint.org/) for code linting
 - [Prettier](https://prettier.io) for code formatting
+- [Drizzle ORM](https://orm.drizzle.team/) for database management
 
 ### Build
 
 To build all apps and packages, run the following command:
 
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+```bash
+pnpm build
 ```
 
 You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+```bash
+pnpm build --filter=@gsc-sanity/core
 ```
 
 ### Develop
 
 To develop all apps and packages, run the following command:
 
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+```bash
+pnpm dev
 ```
 
 You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+```bash
+pnpm dev --filter=web
 ```
 
-### Remote Caching
+## License
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+MIT
