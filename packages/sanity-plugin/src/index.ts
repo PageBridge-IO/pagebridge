@@ -1,3 +1,12 @@
-export { SearchPerformancePane } from "./components/SearchPerformancePane.js";
-export { RefreshQueueTool } from "./components/RefreshQueueTool.js";
-export { gscPlugin } from "./plugin.js";
+export { SearchPerformancePane } from "./components/SearchPerformancePane";
+export { RefreshQueueTool } from "./components/RefreshQueueTool";
+export { gscPlugin, type GscPluginConfig } from "./plugin";
+export {
+  gscSite,
+  gscSnapshot,
+  gscRefreshTask,
+  createGscSnapshot,
+  createGscRefreshTask,
+  type GscSnapshotOptions,
+  type GscRefreshTaskOptions,
+} from "./schemas";

@@ -1,3 +1,11 @@
-export { gscSite } from "./gscSite.js";
-export { gscSnapshot } from "./gscSnapshot.js";
-export { gscRefreshTask } from "./gscRefreshTask.js";
+export { gscSite } from "./gscSite";
+export {
+  gscSnapshot,
+  createGscSnapshot,
+  type GscSnapshotOptions,
+} from "./gscSnapshot";
+export {
+  gscRefreshTask,
+  createGscRefreshTask,
+  type GscRefreshTaskOptions,
+} from "./gscRefreshTask";

@@ -65,6 +65,23 @@ export const syncCommand = new Command("sync")
 
     console.log(`🔄 Starting sync for ${options.site}...`);
 
+    // Find or create the gscSite document in Sanity
+    let siteDoc = await sanity.fetch<{ _id: string } | null>(
+      `*[_type == "gscSite" && siteUrl == $siteUrl][0]{ _id }`,
+      { siteUrl: options.site },
+    );
+
+    if (!siteDoc) {
+      console.log(`📝 Creating gscSite document for ${options.site}...`);
+      siteDoc = await sanity.create({
+        _type: "gscSite",
+        siteUrl: options.site,
+        enabled: true,
+      });
+    }
+
+    const siteId = siteDoc._id;
+
     try {
       const { pages, rowsProcessed } = await syncEngine.sync({
         siteUrl: options.site,
@@ -117,7 +134,7 @@ export const syncCommand = new Command("sync")
         } else {
           const taskGenerator = new TaskGenerator(sanity);
           const created = await taskGenerator.createTasks(
-            options.site,
+            siteId,
             signals,
             matches,
           );
@@ -126,7 +143,7 @@ export const syncCommand = new Command("sync")
       }
 
       if (!options.dryRun) {
-        await syncEngine.writeSnapshots(options.site, matched);
+        await syncEngine.writeSnapshots(siteId, matched);
         console.log(`📝 Updated Sanity snapshots`);
       }
 

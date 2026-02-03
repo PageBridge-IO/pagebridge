@@ -146,9 +146,23 @@ export class SyncEngine {
   }
 
   async writeSnapshots(
-    siteUrl: string,
+    siteId: string,
     matches: { gscUrl: string; sanityId: string | undefined }[],
+    siteUrl?: string,
   ): Promise<void> {
+    // Get the siteUrl from Sanity if not provided
+    let resolvedSiteUrl = siteUrl;
+    if (!resolvedSiteUrl) {
+      const siteDoc = await this.sanity.fetch<{ siteUrl: string } | null>(
+        `*[_type == "gscSite" && _id == $siteId][0]{ siteUrl }`,
+        { siteId },
+      );
+      resolvedSiteUrl = siteDoc?.siteUrl;
+    }
+    if (!resolvedSiteUrl) {
+      throw new Error(`Could not find siteUrl for site ID: ${siteId}`);
+    }
+
     const periods = ["last7", "last28", "last90"] as const;
     const periodDays = { last7: 7, last28: 28, last90: 90 };
 
@@ -160,7 +174,7 @@ export class SyncEngine {
         if (!match.sanityId) continue;
 
         const metrics = await this.getAggregatedMetrics(
-          siteUrl,
+          resolvedSiteUrl,
           match.gscUrl,
           startDate,
           endDate,
@@ -168,7 +182,7 @@ export class SyncEngine {
         if (!metrics) continue;
 
         const topQueries = await this.getTopQueries(
-          siteUrl,
+          resolvedSiteUrl,
           match.gscUrl,
           startDate,
           endDate,
@@ -176,12 +190,12 @@ export class SyncEngine {
 
         const existingSnapshot = await this.sanity.fetch(
           `*[_type == "gscSnapshot" && site._ref == $siteId && page == $page && period == $period][0]._id`,
-          { siteId: siteUrl, page: match.gscUrl, period },
+          { siteId, page: match.gscUrl, period },
         );
 
         const snapshotData = {
           _type: "gscSnapshot",
-          site: { _type: "reference", _ref: siteUrl },
+          site: { _type: "reference", _ref: siteId },
           page: match.gscUrl,
           linkedDocument: { _type: "reference", _ref: match.sanityId },
           period,
