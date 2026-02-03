@@ -1,6 +1,10 @@
 export { SearchPerformancePane } from "./components/SearchPerformancePane";
 export { RefreshQueueTool } from "./components/RefreshQueueTool";
-export { gscPlugin, type GscPluginConfig } from "./plugin";
+export {
+  gscPlugin,
+  createGscStructureResolver,
+  type GscPluginConfig,
+} from "./plugin";
 export {
   gscSite,
   gscSnapshot,

@@ -113,6 +113,52 @@ export const createGscRefreshTask = (options: GscRefreshTaskOptions = {}) => {
         ],
       }),
       defineField({
+        name: "queryContext",
+        title: "Top Queries",
+        type: "array",
+        description: "What people searched to find this page",
+        of: [
+          {
+            type: "object",
+            fields: [
+              defineField({
+                name: "query",
+                type: "string",
+                title: "Query",
+              }),
+              defineField({
+                name: "impressions",
+                type: "number",
+                title: "Impressions",
+              }),
+              defineField({
+                name: "clicks",
+                type: "number",
+                title: "Clicks",
+              }),
+              defineField({
+                name: "position",
+                type: "number",
+                title: "Avg Position",
+              }),
+            ],
+            preview: {
+              select: {
+                query: "query",
+                impressions: "impressions",
+                position: "position",
+              },
+              prepare({ query, impressions, position }) {
+                return {
+                  title: query,
+                  subtitle: `Pos ${position?.toFixed(1)} · ${impressions} impr`,
+                };
+              },
+            },
+          },
+        ],
+      }),
+      defineField({
         name: "notes",
         title: "Notes",
         type: "text",
@@ -137,6 +183,19 @@ export const createGscRefreshTask = (options: GscRefreshTaskOptions = {}) => {
         ],
       },
     ],
+    preview: {
+      select: {
+        title: "linkedDocument.title",
+        reason: "reason",
+        severity: "severity",
+      },
+      prepare({ title, reason, severity }) {
+        return {
+          title: title || "Unknown document",
+          subtitle: `${severity} · ${reason.replace(/_/g, " ")}`,
+        };
+      },
+    },
   });
 };
 

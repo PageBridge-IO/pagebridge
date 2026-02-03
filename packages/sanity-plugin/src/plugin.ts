@@ -1,8 +1,11 @@
 import { definePlugin } from "sanity";
+import type { DefaultDocumentNodeResolver } from "sanity/structure";
+import { ChartUpwardIcon } from "@sanity/icons";
 import { gscSite } from "./schemas/gscSite";
 import { createGscSnapshot } from "./schemas/gscSnapshot";
 import { createGscRefreshTask } from "./schemas/gscRefreshTask";
 import { RefreshQueueTool } from "./components/RefreshQueueTool";
+import { SearchPerformancePane } from "./components/SearchPerformancePane";
 
 export interface GscPluginConfig {
   /**
@@ -12,6 +15,27 @@ export interface GscPluginConfig {
    */
   contentTypes?: string[];
 }
+
+/**
+ * Creates a structure resolver that adds the Performance view to content types
+ * Use this with structureTool's defaultDocumentNode option
+ */
+export const createGscStructureResolver = (
+  contentTypes: string[] = [],
+): DefaultDocumentNodeResolver => {
+  return (S, { schemaType }) => {
+    if (contentTypes.includes(schemaType)) {
+      return S.document().views([
+        S.view.form(),
+        S.view
+          .component(SearchPerformancePane)
+          .title("Performance")
+          .icon(ChartUpwardIcon),
+      ]);
+    }
+    return S.document().views([S.view.form()]);
+  };
+};
 
 export const gscPlugin = definePlugin<GscPluginConfig | void>((config) => {
   const contentTypes = config?.contentTypes ?? [];

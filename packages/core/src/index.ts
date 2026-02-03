@@ -8,4 +8,8 @@ export {
   type QuietPeriodConfig,
 } from "./decay-detector.js";
 export { URLMatcher, type MatchResult, type URLMatcherConfig } from "./url-matcher.js";
-export { TaskGenerator } from "./task-generator.js";
+export {
+  TaskGenerator,
+  type TaskGeneratorOptions,
+  type QueryContext,
+} from "./task-generator.js";
