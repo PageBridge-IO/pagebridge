@@ -1,5 +1,5 @@
-import type { DrizzleClient } from "@gsc-sanity/db";
-import { searchAnalytics, queryAnalytics, syncLog } from "@gsc-sanity/db";
+import type { DrizzleClient } from "@content-keep/db";
+import { searchAnalytics, queryAnalytics, syncLog } from "@content-keep/db";
 import { and, eq, gte, lte } from "drizzle-orm";
 import type { SanityClient } from "@sanity/client";
 import type { GSCClient } from "./gsc-client.js";

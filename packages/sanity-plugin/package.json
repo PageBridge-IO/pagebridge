@@ -1,6 +1,10 @@
 {
-  "name": "@gsc-sanity/sanity-plugin",
+  "name": "@content-keep/sanity-plugin",
   "version": "0.0.1",
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
+  },
   "private": true,
   "type": "module",
   "exports": {
@@ -34,8 +38,8 @@
     "@swc/helpers": "^0.5.18"
   },
   "devDependencies": {
-    "@gsc-sanity/eslint-config": "workspace:^",
-    "@gsc-sanity/typescript-config": "workspace:^",
+    "@content-keep/eslint-config": "workspace:^",
+    "@content-keep/typescript-config": "workspace:^",
     "sanity": "^5.7.0",
     "@sanity/ui": "^3.1.11",
     "@sanity/icons": "^3.7.4",

@@ -1,3 +1,3 @@
-import { config } from "@gsc-sanity/eslint-config/base";
+import { config } from "@content-keep/eslint-config/base";
 
 export default [...config];

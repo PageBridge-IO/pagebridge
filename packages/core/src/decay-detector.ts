@@ -1,5 +1,5 @@
-import type { DrizzleClient } from "@gsc-sanity/db";
-import { searchAnalytics } from "@gsc-sanity/db";
+import type { DrizzleClient } from "@content-keep/db";
+import { searchAnalytics } from "@content-keep/db";
 import { and, avg, gte, lte, sql, eq } from "drizzle-orm";
 
 export interface DecayRule {

@@ -1,6 +1,6 @@
 import type { SanityClient } from "@sanity/client";
-import type { DrizzleClient } from "@gsc-sanity/db";
-import { queryAnalytics } from "@gsc-sanity/db";
+import type { DrizzleClient } from "@content-keep/db";
+import { queryAnalytics } from "@content-keep/db";
 import { and, eq, gte, lte, sql, desc } from "drizzle-orm";
 import type { DecaySignal } from "./decay-detector.js";
 import type { MatchResult } from "./url-matcher.js";
@@ -35,7 +35,7 @@ export class TaskGenerator {
     siteId: string,
     signals: DecaySignal[],
     matches: MatchResult[],
-    siteUrl?: string
+    siteUrl?: string,
   ): Promise<number> {
     let created = 0;
 
@@ -44,7 +44,7 @@ export class TaskGenerator {
     if (!resolvedSiteUrl && this.db) {
       const siteDoc = await this.sanity.fetch<{ siteUrl: string } | null>(
         `*[_type == "gscSite" && _id == $siteId][0]{ siteUrl }`,
-        { siteId }
+        { siteId },
       );
       resolvedSiteUrl = siteDoc?.siteUrl;
     }
@@ -55,7 +55,7 @@ export class TaskGenerator {
 
       const existingTask = await this.sanity.fetch(
         `*[_type == "gscRefreshTask" && linkedDocument._ref == $docId && status in ["open", "in_progress"]][0]._id`,
-        { docId: match.sanityId }
+        { docId: match.sanityId },
       );
 
       if (existingTask) continue;
@@ -94,7 +94,7 @@ export class TaskGenerator {
   private async getTopQueries(
     siteId: string,
     page: string,
-    limit = 5
+    limit = 5,
   ): Promise<QueryContext[]> {
     if (!this.db) return [];
 
@@ -115,8 +115,8 @@ export class TaskGenerator {
           eq(queryAnalytics.siteId, siteId),
           eq(queryAnalytics.page, page),
           gte(queryAnalytics.date, formatDate(startDate)),
-          lte(queryAnalytics.date, formatDate(endDate))
-        )
+          lte(queryAnalytics.date, formatDate(endDate)),
+        ),
       )
       .groupBy(queryAnalytics.query)
       .orderBy(desc(sql`sum(${queryAnalytics.impressions})`))
@@ -133,7 +133,7 @@ export class TaskGenerator {
   async updateTaskStatus(
     taskId: string,
     status: "open" | "snoozed" | "in_progress" | "done" | "dismissed",
-    options?: { snoozeDays?: number; notes?: string }
+    options?: { snoozeDays?: number; notes?: string },
   ): Promise<void> {
     const patch: Record<string, unknown> = { status };
 

@@ -22,12 +22,12 @@ This Turborepo includes the following packages/apps:
 
 ### Packages
 
-- `@gsc-sanity/core`: Sync engine, decay detection, URL matching
-- `@gsc-sanity/db`: PostgreSQL schema and queries (Drizzle ORM)
-- `@gsc-sanity/sanity-plugin`: Sanity Studio v3 components and schemas
-- `@gsc-sanity/ui`: Shared React component library
-- `@gsc-sanity/eslint-config`: ESLint configurations
-- `@gsc-sanity/typescript-config`: TypeScript configurations
+- `@content-keep/core`: Sync engine, decay detection, URL matching
+- `@content-keep/db`: PostgreSQL schema and queries (Drizzle ORM)
+- `@content-keep/sanity-plugin`: Sanity Studio v3 components and schemas
+- `@content-keep/ui`: Shared React component library
+- `@content-keep/eslint-config`: ESLint configurations
+- `@content-keep/typescript-config`: TypeScript configurations
 
 Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
 
@@ -56,7 +56,7 @@ docker compose up -d
 cp .env.example .env.local
 
 # Run database migrations
-pnpm --filter @gsc-sanity/db db:push
+pnpm --filter @content-keep/db db:push
 
 # Build all packages
 pnpm build
@@ -81,13 +81,13 @@ SITE_URL='https://your-site.com'
 
 ```bash
 # Sync GSC data for a site
-pnpm --filter @gsc-sanity/cli start sync --site sc-domain:example.com
+pnpm --filter @content-keep/cli start sync --site sc-domain:example.com
 
 # Dry run (preview without writing)
-pnpm --filter @gsc-sanity/cli start sync --site sc-domain:example.com --dry-run
+pnpm --filter @content-keep/cli start sync --site sc-domain:example.com --dry-run
 
 # Skip task generation
-pnpm --filter @gsc-sanity/cli start sync --site sc-domain:example.com --skip-tasks
+pnpm --filter @content-keep/cli start sync --site sc-domain:example.com --skip-tasks
 ```
 
 #### Sanity Plugin
@@ -97,7 +97,7 @@ Add the plugin to your Sanity Studio configuration:
 ```ts
 // sanity.config.ts
 import { defineConfig } from "sanity";
-import { gscPlugin } from "@gsc-sanity/sanity-plugin";
+import { gscPlugin } from "@content-keep/sanity-plugin";
 
 export default defineConfig({
   // ...
@@ -125,7 +125,7 @@ pnpm build
 You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
 
 ```bash
-pnpm build --filter=@gsc-sanity/core
+pnpm build --filter=@content-keep/core
 ```
 
 ### Develop

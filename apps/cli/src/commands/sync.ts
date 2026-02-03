@@ -8,8 +8,8 @@ import {
   URLMatcher,
   TaskGenerator,
   type MatchResult,
-} from "@gsc-sanity/core";
-import { createDbWithClient } from "@gsc-sanity/db";
+} from "@content-keep/core";
+import { createDbWithClient } from "@content-keep/db";
 
 function daysAgo(days: number): Date {
   const date = new Date();

@@ -1,5 +1,5 @@
 {
-  "extends": "@gsc-sanity/typescript-config/nextjs.json",
+  "extends": "@content-keep/typescript-config/nextjs.json",
   "compilerOptions": {
     "plugins": [
       {

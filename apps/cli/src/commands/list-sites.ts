@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { GSCClient } from "@gsc-sanity/core";
+import { GSCClient } from "@content-keep/core";
 
 export const listSitesCommand = new Command("list-sites")
   .description("List all sites the service account has access to")

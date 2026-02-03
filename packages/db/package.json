@@ -1,7 +1,10 @@
 {
-  "name": "@gsc-sanity/db",
+  "name": "@content-keep/db",
   "version": "0.0.1",
-  "private": true,
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -28,8 +31,8 @@
     "postgres": "^3.4.8"
   },
   "devDependencies": {
-    "@gsc-sanity/eslint-config": "workspace:^",
-    "@gsc-sanity/typescript-config": "workspace:^",
+    "@content-keep/eslint-config": "workspace:^",
+    "@content-keep/typescript-config": "workspace:^",
     "@types/node": "^22.15.3",
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.8",
