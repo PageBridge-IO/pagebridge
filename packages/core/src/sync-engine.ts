@@ -1,8 +1,13 @@
 import type { DrizzleClient } from "@content-keep/db";
-import { searchAnalytics, queryAnalytics, syncLog } from "@content-keep/db";
+import {
+  searchAnalytics,
+  queryAnalytics,
+  syncLog,
+  pageIndexStatus,
+} from "@content-keep/db";
 import { and, eq, gte, lte } from "drizzle-orm";
 import type { SanityClient } from "@sanity/client";
-import type { GSCClient } from "./gsc-client.js";
+import type { GSCClient, IndexStatusResult } from "./gsc-client.js";
 
 export interface SyncOptions {
   siteUrl: string;
@@ -15,6 +20,13 @@ export interface SyncResult {
   pages: string[];
   rowsProcessed: number;
   syncLogId: string;
+}
+
+export interface IndexStatusSyncResult {
+  checked: number;
+  indexed: number;
+  notIndexed: number;
+  skipped: number;
 }
 
 export interface SyncEngineOptions {
@@ -188,16 +200,22 @@ export class SyncEngine {
           endDate,
         );
 
+        // Get index status from database
+        const indexStatusData = await this.getIndexStatus(
+          resolvedSiteUrl,
+          match.gscUrl,
+        );
+
         const existingSnapshot = await this.sanity.fetch(
           `*[_type == "gscSnapshot" && site._ref == $siteId && page == $page && period == $period][0]._id`,
           { siteId, page: match.gscUrl, period },
         );
 
         const snapshotData = {
-          _type: "gscSnapshot",
-          site: { _type: "reference", _ref: siteId },
+          _type: "gscSnapshot" as const,
+          site: { _type: "reference" as const, _ref: siteId },
           page: match.gscUrl,
-          linkedDocument: { _type: "reference", _ref: match.sanityId },
+          linkedDocument: { _type: "reference" as const, _ref: match.sanityId },
           period,
           clicks: metrics.clicks,
           impressions: metrics.impressions,
@@ -205,6 +223,16 @@ export class SyncEngine {
           position: metrics.position,
           topQueries,
           fetchedAt: new Date().toISOString(),
+          indexStatus: indexStatusData
+            ? {
+                verdict: mapVerdictToSanity(indexStatusData.verdict),
+                coverageState: indexStatusData.coverageState,
+                lastCrawlTime:
+                  indexStatusData.lastCrawlTime?.toISOString() ?? null,
+                robotsTxtState: indexStatusData.robotsTxtState,
+                pageFetchState: indexStatusData.pageFetchState,
+              }
+            : undefined,
         };
 
         if (existingSnapshot) {
@@ -214,6 +242,110 @@ export class SyncEngine {
         }
       }
     }
+  }
+
+  async syncIndexStatus(
+    siteUrl: string,
+    pages: string[],
+  ): Promise<IndexStatusSyncResult> {
+    const result: IndexStatusSyncResult = {
+      checked: 0,
+      indexed: 0,
+      notIndexed: 0,
+      skipped: 0,
+    };
+
+    const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+    for (const page of pages) {
+      const id = `${siteUrl}:${page}`;
+
+      // Check if we already have a recent status
+      const existing = await this.db
+        .select({ fetchedAt: pageIndexStatus.fetchedAt })
+        .from(pageIndexStatus)
+        .where(eq(pageIndexStatus.id, id))
+        .limit(1);
+
+      if (
+        existing.length > 0 &&
+        existing[0]?.fetchedAt &&
+        Date.now() - existing[0].fetchedAt.getTime() < CACHE_DURATION_MS
+      ) {
+        result.skipped++;
+        continue;
+      }
+
+      try {
+        const status = await this.gsc.inspectUrl(siteUrl, page);
+
+        await this.db
+          .insert(pageIndexStatus)
+          .values({
+            id,
+            siteId: siteUrl,
+            page,
+            verdict: status.verdict,
+            coverageState: status.coverageState,
+            indexingState: status.indexingState,
+            pageFetchState: status.pageFetchState,
+            lastCrawlTime: status.lastCrawlTime,
+            robotsTxtState: status.robotsTxtState,
+            fetchedAt: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: pageIndexStatus.id,
+            set: {
+              verdict: status.verdict,
+              coverageState: status.coverageState,
+              indexingState: status.indexingState,
+              pageFetchState: status.pageFetchState,
+              lastCrawlTime: status.lastCrawlTime,
+              robotsTxtState: status.robotsTxtState,
+              fetchedAt: new Date(),
+            },
+          });
+
+        result.checked++;
+        if (status.verdict === "PASS") {
+          result.indexed++;
+        } else {
+          result.notIndexed++;
+        }
+
+        // Small delay to respect rate limits (600/min = 100ms between requests)
+        await delay(100);
+      } catch (error) {
+        console.error(`Failed to check index status for ${page}:`, error);
+        result.skipped++;
+      }
+    }
+
+    return result;
+  }
+
+  async getIndexStatus(
+    siteUrl: string,
+    page: string,
+  ): Promise<IndexStatusResult | null> {
+    const id = `${siteUrl}:${page}`;
+    const rows = await this.db
+      .select()
+      .from(pageIndexStatus)
+      .where(eq(pageIndexStatus.id, id))
+      .limit(1);
+
+    if (rows.length === 0) return null;
+
+    const row = rows[0]!;
+    return {
+      verdict: row.verdict as IndexStatusResult["verdict"],
+      coverageState: row.coverageState,
+      indexingState: row.indexingState,
+      pageFetchState: row.pageFetchState,
+      lastCrawlTime: row.lastCrawlTime,
+      robotsTxtState: row.robotsTxtState,
+    };
   }
 
   private async getAggregatedMetrics(
@@ -332,4 +464,22 @@ function daysAgo(days: number): Date {
 
 function formatDate(date: Date): string {
   return date.toISOString().split("T")[0]!;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function mapVerdictToSanity(
+  verdict: string,
+): "indexed" | "not_indexed" | "excluded" {
+  switch (verdict) {
+    case "PASS":
+      return "indexed";
+    case "NEUTRAL":
+      return "excluded";
+    case "FAIL":
+    default:
+      return "not_indexed";
+  }
 }

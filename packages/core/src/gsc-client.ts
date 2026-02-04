@@ -26,6 +26,17 @@ export interface FetchOptions {
   rowLimit?: number;
 }
 
+export type IndexVerdict = "PASS" | "FAIL" | "NEUTRAL" | "VERDICT_UNSPECIFIED";
+
+export interface IndexStatusResult {
+  verdict: IndexVerdict;
+  coverageState: string | null;
+  indexingState: string | null;
+  pageFetchState: string | null;
+  lastCrawlTime: Date | null;
+  robotsTxtState: string | null;
+}
+
 export class GSCClient {
   private auth: JWT;
   private searchConsole: searchconsole_v1.Searchconsole;
@@ -87,6 +98,26 @@ export class GSCClient {
   async listSites(): Promise<string[]> {
     const response = await this.searchConsole.sites.list();
     return (response.data.siteEntry ?? []).map((site) => site.siteUrl!).filter(Boolean);
+  }
+
+  async inspectUrl(siteUrl: string, inspectionUrl: string): Promise<IndexStatusResult> {
+    const response = await this.searchConsole.urlInspection.index.inspect({
+      requestBody: {
+        inspectionUrl,
+        siteUrl,
+      },
+    });
+
+    const result = response.data.inspectionResult?.indexStatusResult;
+
+    return {
+      verdict: (result?.verdict as IndexVerdict) ?? "VERDICT_UNSPECIFIED",
+      coverageState: result?.coverageState ?? null,
+      indexingState: result?.indexingState ?? null,
+      pageFetchState: result?.pageFetchState ?? null,
+      lastCrawlTime: result?.lastCrawlTime ? new Date(result.lastCrawlTime) : null,
+      robotsTxtState: result?.robotsTxtState ?? null,
+    };
   }
 }
 

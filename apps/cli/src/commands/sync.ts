@@ -22,6 +22,7 @@ export const syncCommand = new Command("sync")
   .requiredOption("--site <url>", "GSC site URL (e.g., sc-domain:example.com)")
   .option("--dry-run", "Preview changes without writing to Sanity")
   .option("--skip-tasks", "Only sync data, do not generate tasks")
+  .option("--check-index", "Check Google index status for matched pages")
   .option("--quiet-period <days>", "Ignore pages published within N days", "45")
   .action(async (options) => {
     const requiredEnvVars = [
@@ -63,7 +64,7 @@ export const syncCommand = new Command("sync")
       pathPrefix: "/blog",
     });
 
-    console.log(`🔄 Starting sync for ${options.site}...`);
+    console.log(`Starting sync for ${options.site}...`);
 
     // Find or create the gscSite document in Sanity
     let siteDoc = await sanity.fetch<{ _id: string } | null>(
@@ -89,9 +90,7 @@ export const syncCommand = new Command("sync")
         endDate: daysAgo(3),
       });
 
-      console.log(
-        `📊 Processed ${rowsProcessed} rows for ${pages.length} pages`,
-      );
+      console.log(`Processed ${rowsProcessed} rows for ${pages.length} pages`);
 
       const matches = await matcher.matchUrls(pages);
       const matched = matches.filter(
@@ -100,12 +99,25 @@ export const syncCommand = new Command("sync")
       const unmatched = matches.filter((m) => !m.sanityId);
 
       console.log(
-        `🔗 Matched ${matched.length}/${pages.length} URLs to Sanity documents`,
+        `Matched ${matched.length}/${pages.length} URLs to Sanity documents`,
       );
 
       if (unmatched.length > 0 && unmatched.length <= 10) {
-        console.log(`⚠️  Unmatched URLs:`);
+        console.log(`Unmatched URLs:`);
         unmatched.forEach((u) => console.log(`   - ${u.gscUrl}`));
+      }
+
+      // Check index status if requested
+      if (options.checkIndex && matched.length > 0) {
+        console.log(`\n🔎 Checking index status for ${matched.length} pages...`);
+        const matchedUrls = matched.map((m) => m.gscUrl);
+        const indexResult = await syncEngine.syncIndexStatus(
+          options.site,
+          matchedUrls,
+        );
+        console.log(
+          `   ✓ Indexed: ${indexResult.indexed}, Not indexed: ${indexResult.notIndexed}, Skipped: ${indexResult.skipped}`,
+        );
       }
 
       if (!options.skipTasks) {
@@ -123,7 +135,7 @@ export const syncCommand = new Command("sync")
         console.log(`🔍 Detected ${signals.length} decay signals`);
 
         if (options.dryRun) {
-          console.log("\n📋 Would create the following tasks:");
+          console.log("\nWould create the following tasks:");
           signals.forEach((s) => {
             console.log(`   [${s.severity.toUpperCase()}] ${s.page}`);
             console.log(`      Reason: ${s.reason}`);
@@ -144,7 +156,7 @@ export const syncCommand = new Command("sync")
 
       if (!options.dryRun) {
         await syncEngine.writeSnapshots(siteId, matched);
-        console.log(`📝 Updated Sanity snapshots`);
+        console.log(`Updated Sanity snapshots`);
       }
 
       console.log(`\n✨ Sync complete!`);

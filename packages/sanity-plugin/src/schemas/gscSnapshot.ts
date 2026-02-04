@@ -84,6 +84,42 @@ export const createGscSnapshot = (options: GscSnapshotOptions = {}) => {
         title: "Fetched At",
         type: "datetime",
       }),
+      defineField({
+        name: "indexStatus",
+        title: "Index Status",
+        type: "object",
+        fields: [
+          defineField({
+            name: "verdict",
+            title: "Verdict",
+            type: "string",
+            options: {
+              list: ["indexed", "not_indexed", "excluded"],
+            },
+          }),
+          defineField({
+            name: "coverageState",
+            title: "Coverage State",
+            type: "string",
+            description: "Human-readable index status from Google",
+          }),
+          defineField({
+            name: "lastCrawlTime",
+            title: "Last Crawl Time",
+            type: "datetime",
+          }),
+          defineField({
+            name: "robotsTxtState",
+            title: "Robots.txt State",
+            type: "string",
+          }),
+          defineField({
+            name: "pageFetchState",
+            title: "Page Fetch State",
+            type: "string",
+          }),
+        ],
+      }),
     ],
     preview: {
       select: { title: "page", subtitle: "period" },

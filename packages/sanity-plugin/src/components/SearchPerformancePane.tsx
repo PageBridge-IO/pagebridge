@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { useClient } from "sanity";
-import { Card, Stack, Text, Badge, Flex, Box, Spinner } from "@sanity/ui";
-import { ArrowUpIcon, ArrowDownIcon, ArrowRightIcon } from "@sanity/icons";
+import { Card, Stack, Text, Badge, Flex, Box, Spinner, Tooltip } from "@sanity/ui";
+import { ArrowUpIcon, ArrowDownIcon, ArrowRightIcon, CheckmarkCircleIcon, CloseCircleIcon, WarningOutlineIcon } from "@sanity/icons";
+
+interface IndexStatus {
+  verdict: "indexed" | "not_indexed" | "excluded";
+  coverageState: string | null;
+  lastCrawlTime: string | null;
+}
 
 interface PerformanceData {
   clicks: number;
@@ -11,6 +17,7 @@ interface PerformanceData {
   positionDelta: number;
   topQueries: { query: string; clicks: number; position: number }[];
   lastUpdated: string;
+  indexStatus?: IndexStatus;
 }
 
 interface SearchPerformancePaneProps {
@@ -33,7 +40,8 @@ export function SearchPerformancePane({
           ctr,
           position,
           topQueries,
-          fetchedAt
+          fetchedAt,
+          indexStatus
         }`,
         { id: documentId },
       );
@@ -52,6 +60,7 @@ export function SearchPerformancePane({
             ? snapshot.position - previousSnapshot.position
             : 0,
           lastUpdated: snapshot.fetchedAt,
+          indexStatus: snapshot.indexStatus,
         });
       }
       setLoading(false);
@@ -81,9 +90,12 @@ export function SearchPerformancePane({
   return (
     <Card padding={4}>
       <Stack space={4}>
-        <Text weight="semibold" size={2}>
-          Search Performance (Last 28 Days)
-        </Text>
+        <Flex justify="space-between" align="center">
+          <Text weight="semibold" size={2}>
+            Search Performance (Last 28 Days)
+          </Text>
+          {data.indexStatus && <IndexStatusBadge status={data.indexStatus} />}
+        </Flex>
 
         <Flex gap={3} wrap="wrap">
           <MetricCard label="Clicks" value={data.clicks.toLocaleString()} />
@@ -169,5 +181,57 @@ function MetricCard({ label, value, trend, invertTrend }: MetricCardProps) {
         </Flex>
       </Stack>
     </Card>
+  );
+}
+
+interface IndexStatusBadgeProps {
+  status: IndexStatus;
+}
+
+function IndexStatusBadge({ status }: IndexStatusBadgeProps) {
+  const config = {
+    indexed: {
+      tone: "positive" as const,
+      icon: CheckmarkCircleIcon,
+      label: "Indexed",
+    },
+    not_indexed: {
+      tone: "critical" as const,
+      icon: CloseCircleIcon,
+      label: "Not Indexed",
+    },
+    excluded: {
+      tone: "caution" as const,
+      icon: WarningOutlineIcon,
+      label: "Excluded",
+    },
+  };
+
+  const { tone, icon: Icon, label } = config[status.verdict];
+  const tooltipContent = status.coverageState || label;
+
+  return (
+    <Tooltip
+      content={
+        <Box padding={2}>
+          <Stack space={2}>
+            <Text size={1}>{tooltipContent}</Text>
+            {status.lastCrawlTime && (
+              <Text size={0} muted>
+                Last crawled: {new Date(status.lastCrawlTime).toLocaleDateString()}
+              </Text>
+            )}
+          </Stack>
+        </Box>
+      }
+      placement="top"
+    >
+      <Badge tone={tone} fontSize={1} style={{ cursor: "help" }}>
+        <Flex align="center" gap={1}>
+          <Icon />
+          {label}
+        </Flex>
+      </Badge>
+    </Tooltip>
   );
 }

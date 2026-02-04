@@ -1,5 +1,15 @@
-export { GSCClient, type GSCClientOptions } from "./gsc-client.js";
-export { SyncEngine, type SyncOptions, type SyncResult } from "./sync-engine.js";
+export {
+  GSCClient,
+  type GSCClientOptions,
+  type IndexStatusResult,
+  type IndexVerdict,
+} from "./gsc-client.js";
+export {
+  SyncEngine,
+  type SyncOptions,
+  type SyncResult,
+  type IndexStatusSyncResult,
+} from "./sync-engine.js";
 export {
   DecayDetector,
   defaultRules,

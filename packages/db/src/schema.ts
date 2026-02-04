@@ -55,9 +55,28 @@ export const syncLog = pgTable("sync_log", {
   error: text("error"),
 });
 
+export const pageIndexStatus = pgTable(
+  "page_index_status",
+  {
+    id: text("id").primaryKey(), // `${siteId}:${page}`
+    siteId: text("site_id").notNull(),
+    page: text("page").notNull(),
+    verdict: text("verdict").notNull(), // 'PASS' | 'FAIL' | 'NEUTRAL'
+    coverageState: text("coverage_state"),
+    indexingState: text("indexing_state"),
+    pageFetchState: text("page_fetch_state"),
+    lastCrawlTime: timestamp("last_crawl_time"),
+    robotsTxtState: text("robots_txt_state"),
+    fetchedAt: timestamp("fetched_at").defaultNow(),
+  },
+  (table) => [index("page_index_site_idx").on(table.siteId, table.page)],
+);
+
 export type SearchAnalytics = typeof searchAnalytics.$inferSelect;
 export type NewSearchAnalytics = typeof searchAnalytics.$inferInsert;
 export type QueryAnalytics = typeof queryAnalytics.$inferSelect;
 export type NewQueryAnalytics = typeof queryAnalytics.$inferInsert;
 export type SyncLog = typeof syncLog.$inferSelect;
 export type NewSyncLog = typeof syncLog.$inferInsert;
+export type PageIndexStatus = typeof pageIndexStatus.$inferSelect;
+export type NewPageIndexStatus = typeof pageIndexStatus.$inferInsert;
