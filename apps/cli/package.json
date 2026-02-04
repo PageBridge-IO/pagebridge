@@ -1,7 +1,11 @@
 {
   "name": "@content-keep/cli",
   "version": "0.0.1",
-  "private": true,
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "license": "MIT",
   "type": "module",
   "bin": {
     "gsc-sanity": "./dist/index.js"
