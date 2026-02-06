@@ -1,10 +1,7 @@
 {
   "name": "@pagebridge/cli",
   "version": "0.0.1",
-  "publishConfig": {
-    "access": "restricted",
-    "registry": "https://registry.npmjs.org/"
-  },
+  "private": false,
   "license": "MIT",
   "type": "module",
   "bin": {

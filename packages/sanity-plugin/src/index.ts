@@ -3,6 +3,8 @@ export { RefreshQueueTool } from "./components/RefreshQueueTool";
 export {
   gscPlugin,
   createGscStructureResolver,
+  createPageBridgeStructure,
+  PAGEBRIDGE_TYPES,
   type GscPluginConfig,
 } from "./plugin";
 export {

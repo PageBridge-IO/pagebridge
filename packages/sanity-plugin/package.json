@@ -1,10 +1,7 @@
 {
   "name": "@pagebridge/sanity",
-  "version": "0.0.2",
-  "publishConfig": {
-    "access": "restricted",
-    "registry": "https://registry.npmjs.org/"
-  },
+  "version": "0.0.1",
+  "private": false,
   "type": "module",
   "exports": {
     ".": {
