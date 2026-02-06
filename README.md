@@ -4,11 +4,11 @@ Connect Google Search Console data to Sanity CMS for content performance trackin
 
 ## Features
 
-- 📊 **Sync GSC Data**: Fetch search analytics from Google Search Console and store in PostgreSQL
-- 🔗 **URL Matching**: Automatically match GSC URLs to Sanity documents
-- 📉 **Decay Detection**: Detect content decay patterns (position drops, low CTR, traffic decline)
-- ✅ **Refresh Tasks**: Generate actionable refresh tasks in Sanity Studio
-- 📈 **Performance Pane**: View search performance directly in Sanity documents
+- **Sync GSC Data**: Fetch search analytics from Google Search Console and store in PostgreSQL
+- **URL Matching**: Automatically match GSC URLs to Sanity documents
+- **Decay Detection**: Detect content decay patterns (position drops, low CTR, traffic decline)
+- **Refresh Tasks**: Generate actionable refresh tasks in Sanity Studio
+- **Performance Pane**: View search performance directly in Sanity documents
 
 ## Project Structure
 
@@ -18,7 +18,6 @@ This Turborepo includes the following packages/apps:
 
 - `cli`: Command-line tool for syncing GSC data
 - `docs`: Documentation site ([Next.js](https://nextjs.org/))
-- `web`: Example web application ([Next.js](https://nextjs.org/))
 
 ### Packages
 
