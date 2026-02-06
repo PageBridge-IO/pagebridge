@@ -1,5 +1,5 @@
 {
-  "extends": "@content-keep/typescript-config/nextjs.json",
+  "extends": "@pagebridge/typescript-config/nextjs.json",
   "compilerOptions": {
     "plugins": [
       {

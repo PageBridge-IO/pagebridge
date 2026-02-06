@@ -1,11 +1,11 @@
-# @content-keep/core
+# @pagebridge/core
 
 Core business logic for syncing Google Search Console data to Sanity CMS, detecting content decay patterns, and generating refresh tasks.
 
 ## Installation
 
 ```bash
-pnpm add @content-keep/core
+pnpm add @pagebridge/core
 ```
 
 ## Overview
@@ -25,7 +25,7 @@ This package provides the main building blocks for content performance tracking:
 Authenticates with Google and fetches search analytics data.
 
 ```typescript
-import { GSCClient } from '@content-keep/core';
+import { GSCClient } from '@pagebridge/core';
 
 const client = new GSCClient({
   serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT,
@@ -54,8 +54,8 @@ const status = await client.inspectUrl({
 Coordinates the full sync workflow: fetching data, storing metrics, and writing Sanity snapshots.
 
 ```typescript
-import { SyncEngine } from '@content-keep/core';
-import { createDb } from '@content-keep/db';
+import { SyncEngine } from '@pagebridge/core';
+import { createDb } from '@pagebridge/db';
 import { createClient } from '@sanity/client';
 
 const db = createDb(process.env.DATABASE_URL);
@@ -85,7 +85,7 @@ const result = await engine.sync({
 Identifies content showing signs of performance decline.
 
 ```typescript
-import { DecayDetector } from '@content-keep/core';
+import { DecayDetector } from '@pagebridge/core';
 
 const detector = new DecayDetector({
   db,
@@ -126,7 +126,7 @@ const signals = await detector.detect({
 Maps GSC page URLs to Sanity documents.
 
 ```typescript
-import { URLMatcher } from '@content-keep/core';
+import { URLMatcher } from '@pagebridge/core';
 
 const matcher = new URLMatcher({
   siteUrl: 'https://example.com',
@@ -146,7 +146,7 @@ const results = matcher.match({
 Creates refresh tasks in Sanity for pages with decay signals.
 
 ```typescript
-import { TaskGenerator } from '@content-keep/core';
+import { TaskGenerator } from '@pagebridge/core';
 
 const generator = new TaskGenerator({
   sanityClient,

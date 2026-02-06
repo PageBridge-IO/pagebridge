@@ -1,10 +1,10 @@
-import type { DrizzleClient } from "@content-keep/db";
+import type { DrizzleClient } from "@pagebridge/db";
 import {
   searchAnalytics,
   queryAnalytics,
   syncLog,
   pageIndexStatus,
-} from "@content-keep/db";
+} from "@pagebridge/db";
 import { and, eq, gte, lte } from "drizzle-orm";
 import type { SanityClient } from "@sanity/client";
 import type { GSCClient, IndexStatusResult } from "./gsc-client.js";

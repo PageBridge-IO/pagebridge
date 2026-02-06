@@ -1,6 +1,6 @@
-# @content-keep/ui
+# @pagebridge/ui
 
-Shared React component library for Content Keep applications.
+Shared React component library for PageBridge applications.
 
 ## Installation
 
@@ -10,7 +10,7 @@ This is a private workspace package. It is not published to npm and is only avai
 // In package.json
 {
   "dependencies": {
-    "@content-keep/ui": "workspace:^"
+    "@pagebridge/ui": "workspace:^"
   }
 }
 ```
@@ -20,9 +20,9 @@ This is a private workspace package. It is not published to npm and is only avai
 Components are exported directly from source files:
 
 ```typescript
-import { Button } from '@content-keep/ui/button';
-import { Card } from '@content-keep/ui/card';
-import { Code } from '@content-keep/ui/code';
+import { Button } from '@pagebridge/ui/button';
+import { Card } from '@pagebridge/ui/card';
+import { Code } from '@pagebridge/ui/code';
 ```
 
 ## Components
@@ -32,7 +32,7 @@ import { Code } from '@content-keep/ui/code';
 Basic button component with click handling.
 
 ```typescript
-import { Button } from '@content-keep/ui/button';
+import { Button } from '@pagebridge/ui/button';
 
 function App() {
   return (
@@ -53,7 +53,7 @@ Props:
 Link card component for navigation.
 
 ```typescript
-import { Card } from '@content-keep/ui/card';
+import { Card } from '@pagebridge/ui/card';
 
 function App() {
   return (
@@ -79,7 +79,7 @@ Props:
 Code display component for syntax highlighting.
 
 ```typescript
-import { Code } from '@content-keep/ui/code';
+import { Code } from '@pagebridge/ui/code';
 
 function App() {
   return <Code className="custom-class">{`const x = 1;`}</Code>;
@@ -99,7 +99,7 @@ To add a new component:
 
 1. Create a new file in `src/` (e.g., `src/my-component.tsx`)
 2. Export the component as the default or named export
-3. Import it using `@content-keep/ui/my-component`
+3. Import it using `@pagebridge/ui/my-component`
 
 ## License
 

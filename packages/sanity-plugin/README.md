@@ -1,11 +1,11 @@
-# @content-keep/sanity-plugin
+# @pagebridge/sanity-plugin
 
-Sanity Studio v3 plugin for Content Keep. Provides document schemas, UI components, and tools for viewing search performance data and managing content refresh tasks.
+Sanity Studio v3 plugin for PageBridge. Provides document schemas, UI components, and tools for viewing search performance data and managing content refresh tasks.
 
 ## Installation
 
 ```bash
-pnpm add @content-keep/sanity-plugin
+pnpm add @pagebridge/sanity-plugin
 ```
 
 ## Setup
@@ -16,7 +16,7 @@ In your `sanity.config.ts`:
 
 ```typescript
 import { defineConfig } from 'sanity';
-import { gscPlugin } from '@content-keep/sanity-plugin';
+import { gscPlugin } from '@pagebridge/sanity-plugin';
 
 export default defineConfig({
   // ... other config
@@ -35,7 +35,7 @@ To display the Performance pane on your content documents:
 ```typescript
 import { defineConfig } from 'sanity';
 import { structureTool } from 'sanity/structure';
-import { gscPlugin, createGscStructureResolver } from '@content-keep/sanity-plugin';
+import { gscPlugin, createGscStructureResolver } from '@pagebridge/sanity-plugin';
 
 export default defineConfig({
   // ... other config
@@ -111,7 +111,7 @@ Content refresh task with decay signal information.
 Document view pane showing performance metrics for a content document.
 
 ```typescript
-import { SearchPerformancePane } from '@content-keep/sanity-plugin';
+import { SearchPerformancePane } from '@pagebridge/sanity-plugin';
 
 // Used automatically when you configure the structure resolver
 // Can also be used directly in custom document views
@@ -163,7 +163,7 @@ import {
   gscSite,
   createGscSnapshot,
   createGscRefreshTask,
-} from '@content-keep/sanity-plugin/schemas';
+} from '@pagebridge/sanity-plugin/schemas';
 
 // Create snapshot schema with custom content types
 const customSnapshot = createGscSnapshot({
@@ -192,11 +192,11 @@ The components use Sanity UI and follow the Studio's theme. No additional CSS is
 
 ```typescript
 // Plugin
-export { gscPlugin, createGscStructureResolver } from '@content-keep/sanity-plugin';
-export type { GscPluginConfig } from '@content-keep/sanity-plugin';
+export { gscPlugin, createGscStructureResolver } from '@pagebridge/sanity-plugin';
+export type { GscPluginConfig } from '@pagebridge/sanity-plugin';
 
 // Components
-export { SearchPerformancePane, RefreshQueueTool } from '@content-keep/sanity-plugin';
+export { SearchPerformancePane, RefreshQueueTool } from '@pagebridge/sanity-plugin';
 
 // Schemas
 export {
@@ -205,8 +205,8 @@ export {
   gscRefreshTask,
   createGscSnapshot,
   createGscRefreshTask,
-} from '@content-keep/sanity-plugin/schemas';
-export type { GscSnapshotOptions, GscRefreshTaskOptions } from '@content-keep/sanity-plugin/schemas';
+} from '@pagebridge/sanity-plugin/schemas';
+export type { GscSnapshotOptions, GscRefreshTaskOptions } from '@pagebridge/sanity-plugin/schemas';
 ```
 
 ## License

@@ -1,5 +1,5 @@
 {
-  "name": "@content-keep/cli",
+  "name": "@pagebridge/cli",
   "version": "0.0.1",
   "publishConfig": {
     "access": "restricted",
@@ -8,7 +8,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "gsc-sanity": "./dist/index.js"
+    "pagebridge": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -18,16 +18,16 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@content-keep/core": "workspace:^",
-    "@content-keep/db": "workspace:^",
+    "@pagebridge/core": "workspace:^",
+    "@pagebridge/db": "workspace:^",
     "@sanity/client": "^7.14.1",
     "commander": "^14.0.3",
     "dotenv": "^17.2.3",
     "postgres": "^3.4.8"
   },
   "devDependencies": {
-    "@content-keep/eslint-config": "workspace:^",
-    "@content-keep/typescript-config": "workspace:^",
+    "@pagebridge/eslint-config": "workspace:^",
+    "@pagebridge/typescript-config": "workspace:^",
     "@types/node": "^22.15.3",
     "eslint": "^9.39.1",
     "typescript": "^5.9.3"

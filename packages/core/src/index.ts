@@ -17,7 +17,13 @@ export {
   type DecaySignal,
   type QuietPeriodConfig,
 } from "./decay-detector.js";
-export { URLMatcher, type MatchResult, type URLMatcherConfig } from "./url-matcher.js";
+export {
+  URLMatcher,
+  type MatchResult,
+  type URLMatcherConfig,
+  type UnmatchReason,
+  type MatchDiagnostics,
+} from "./url-matcher.js";
 export {
   TaskGenerator,
   type TaskGeneratorOptions,

@@ -1,11 +1,11 @@
-# @content-keep/db
+# @pagebridge/db
 
-Database layer for Content Keep, providing Drizzle ORM schema definitions and PostgreSQL client utilities.
+Database layer for PageBridge, providing Drizzle ORM schema definitions and PostgreSQL client utilities.
 
 ## Installation
 
 ```bash
-pnpm add @content-keep/db
+pnpm add @pagebridge/db
 ```
 
 ## Usage
@@ -13,13 +13,13 @@ pnpm add @content-keep/db
 ### Creating a Database Client
 
 ```typescript
-import { createDb } from '@content-keep/db';
+import { createDb } from '@pagebridge/db';
 
 const db = createDb(process.env.DATABASE_URL);
 
 // Or with an existing postgres.js client
 import postgres from 'postgres';
-import { createDbWithClient } from '@content-keep/db';
+import { createDbWithClient } from '@pagebridge/db';
 
 const sql = postgres(process.env.DATABASE_URL);
 const db = createDbWithClient(sql);
@@ -28,7 +28,7 @@ const db = createDbWithClient(sql);
 ### Querying Data
 
 ```typescript
-import { createDb, searchAnalytics, queryAnalytics } from '@content-keep/db';
+import { createDb, searchAnalytics, queryAnalytics } from '@pagebridge/db';
 import { eq, and, gte } from 'drizzle-orm';
 
 const db = createDb(process.env.DATABASE_URL);
@@ -59,7 +59,7 @@ const queries = await db
 ### Inserting Data
 
 ```typescript
-import { searchAnalytics, syncLog } from '@content-keep/db';
+import { searchAnalytics, syncLog } from '@pagebridge/db';
 
 // Insert or update metrics (upsert)
 await db
@@ -206,8 +206,8 @@ pnpm db:push
 
 ```typescript
 // Client factories
-export { createDb, createDbWithClient } from '@content-keep/db';
-export type { DrizzleClient } from '@content-keep/db';
+export { createDb, createDbWithClient } from '@pagebridge/db';
+export type { DrizzleClient } from '@pagebridge/db';
 
 // Schema tables
 export {
@@ -215,7 +215,7 @@ export {
   queryAnalytics,
   syncLog,
   pageIndexStatus,
-} from '@content-keep/db/schema';
+} from '@pagebridge/db/schema';
 
 // Types
 export type {
@@ -227,7 +227,7 @@ export type {
   NewSyncLog,
   PageIndexStatus,
   NewPageIndexStatus,
-} from '@content-keep/db/schema';
+} from '@pagebridge/db/schema';
 ```
 
 ## License

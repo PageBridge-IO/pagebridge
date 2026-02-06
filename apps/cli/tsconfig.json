@@ -1,5 +1,5 @@
 {
-  "extends": "@content-keep/typescript-config/library.json",
+  "extends": "@pagebridge/typescript-config/library.json",
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src"

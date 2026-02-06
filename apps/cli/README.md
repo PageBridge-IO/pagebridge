@@ -1,6 +1,6 @@
-# @content-keep/cli
+# @pagebridge/cli
 
-Command-line interface for Content Keep. Syncs Google Search Console data to Sanity CMS, detects content decay, and generates refresh tasks.
+Command-line interface for PageBridge. Syncs Google Search Console data to Sanity CMS, detects content decay, and generates refresh tasks.
 
 ## Installation
 
@@ -8,10 +8,10 @@ The CLI is a private workspace package. Build and run it from the monorepo root:
 
 ```bash
 # Build the CLI
-pnpm build --filter=@content-keep/cli
+pnpm build --filter=@pagebridge/cli
 
 # Run commands
-pnpm --filter @content-keep/cli start <command>
+pnpm --filter @pagebridge/cli start <command>
 
 # Or use the binary name directly after building
 ./apps/cli/dist/index.js <command>
@@ -24,7 +24,7 @@ pnpm --filter @content-keep/cli start <command>
 Sync Google Search Console data and optionally generate refresh tasks for decaying content.
 
 ```bash
-pnpm --filter @content-keep/cli start sync --site sc-domain:example.com
+pnpm --filter @pagebridge/cli start sync --site sc-domain:example.com
 ```
 
 Options:
@@ -41,19 +41,19 @@ Examples:
 
 ```bash
 # Basic sync
-pnpm --filter @content-keep/cli start sync --site sc-domain:example.com
+pnpm --filter @pagebridge/cli start sync --site sc-domain:example.com
 
 # Preview what would be synced
-pnpm --filter @content-keep/cli start sync --site sc-domain:example.com --dry-run
+pnpm --filter @pagebridge/cli start sync --site sc-domain:example.com --dry-run
 
 # Sync data only, no refresh tasks
-pnpm --filter @content-keep/cli start sync --site sc-domain:example.com --skip-tasks
+pnpm --filter @pagebridge/cli start sync --site sc-domain:example.com --skip-tasks
 
 # Include index status checks
-pnpm --filter @content-keep/cli start sync --site sc-domain:example.com --check-index
+pnpm --filter @pagebridge/cli start sync --site sc-domain:example.com --check-index
 
 # Use a shorter quiet period (30 days)
-pnpm --filter @content-keep/cli start sync --site sc-domain:example.com --quiet-period 30
+pnpm --filter @pagebridge/cli start sync --site sc-domain:example.com --quiet-period 30
 ```
 
 ### list-sites
@@ -61,7 +61,7 @@ pnpm --filter @content-keep/cli start sync --site sc-domain:example.com --quiet-
 List all Google Search Console properties accessible by the service account.
 
 ```bash
-pnpm --filter @content-keep/cli start list-sites
+pnpm --filter @pagebridge/cli start list-sites
 ```
 
 Output:
@@ -110,11 +110,11 @@ The `sync` command performs these steps:
 
 ## Programmatic Usage
 
-The CLI uses `@content-keep/core` under the hood. For programmatic access:
+The CLI uses `@pagebridge/core` under the hood. For programmatic access:
 
 ```typescript
-import { GSCClient, SyncEngine, DecayDetector, TaskGenerator } from '@content-keep/core';
-import { createDb } from '@content-keep/db';
+import { GSCClient, SyncEngine, DecayDetector, TaskGenerator } from '@pagebridge/core';
+import { createDb } from '@pagebridge/db';
 import { createClient } from '@sanity/client';
 
 const gscClient = new GSCClient({
@@ -140,8 +140,8 @@ const result = await engine.sync({
 
 ## Dependencies
 
-- `@content-keep/core` - Business logic
-- `@content-keep/db` - Database operations
+- `@pagebridge/core` - Business logic
+- `@pagebridge/db` - Database operations
 - `@sanity/client` - Sanity API
 - `commander` - CLI framework
 - `dotenv` - Environment variable loading
@@ -150,13 +150,13 @@ const result = await engine.sync({
 
 ```bash
 # Watch mode
-pnpm --filter @content-keep/cli dev
+pnpm --filter @pagebridge/cli dev
 
 # Build
-pnpm --filter @content-keep/cli build
+pnpm --filter @pagebridge/cli build
 
 # Type check
-pnpm --filter @content-keep/cli check-types
+pnpm --filter @pagebridge/cli check-types
 ```
 
 ## License

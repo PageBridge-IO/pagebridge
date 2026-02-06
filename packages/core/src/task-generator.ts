@@ -1,6 +1,6 @@
 import type { SanityClient } from "@sanity/client";
-import type { DrizzleClient } from "@content-keep/db";
-import { queryAnalytics } from "@content-keep/db";
+import type { DrizzleClient } from "@pagebridge/db";
+import { queryAnalytics } from "@pagebridge/db";
 import { and, eq, gte, lte, sql, desc } from "drizzle-orm";
 import type { DecaySignal } from "./decay-detector.js";
 import type { MatchResult } from "./url-matcher.js";

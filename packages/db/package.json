@@ -1,5 +1,5 @@
 {
-  "name": "@content-keep/db",
+  "name": "@pagebridge/db",
   "license": "MIT",
   "version": "0.0.2",
   "publishConfig": {
@@ -32,8 +32,8 @@
     "postgres": "^3.4.8"
   },
   "devDependencies": {
-    "@content-keep/eslint-config": "workspace:^",
-    "@content-keep/typescript-config": "workspace:^",
+    "@pagebridge/eslint-config": "workspace:^",
+    "@pagebridge/typescript-config": "workspace:^",
     "@types/node": "^22.15.3",
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.8",

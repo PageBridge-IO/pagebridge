@@ -1,5 +1,5 @@
 {
-  "name": "@content-keep/sanity-plugin",
+  "name": "@pagebridge/sanity",
   "version": "0.0.2",
   "publishConfig": {
     "access": "restricted",
@@ -37,8 +37,8 @@
     "@swc/helpers": "^0.5.18"
   },
   "devDependencies": {
-    "@content-keep/eslint-config": "workspace:^",
-    "@content-keep/typescript-config": "workspace:^",
+    "@pagebridge/eslint-config": "workspace:^",
+    "@pagebridge/typescript-config": "workspace:^",
     "sanity": "^5.7.0",
     "@sanity/ui": "^3.1.11",
     "@sanity/icons": "^3.7.4",

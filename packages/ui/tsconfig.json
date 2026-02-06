@@ -1,5 +1,5 @@
 {
-  "extends": "@content-keep/typescript-config/react-library.json",
+  "extends": "@pagebridge/typescript-config/react-library.json",
   "compilerOptions": {
     "outDir": "dist"
   },

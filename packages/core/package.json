@@ -1,5 +1,5 @@
 {
-  "name": "@content-keep/core",
+  "name": "@pagebridge/core",
   "version": "0.0.2",
   "license": "MIT",
   "publishConfig": {
@@ -20,15 +20,15 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@content-keep/db": "workspace:^",
+    "@pagebridge/db": "workspace:^",
     "@sanity/client": "^7.14.1",
     "drizzle-orm": "^0.45.1",
     "google-auth-library": "^10.5.0",
     "googleapis": "^171.1.0"
   },
   "devDependencies": {
-    "@content-keep/eslint-config": "workspace:^",
-    "@content-keep/typescript-config": "workspace:^",
+    "@pagebridge/eslint-config": "workspace:^",
+    "@pagebridge/typescript-config": "workspace:^",
     "@types/node": "^22.15.3",
     "eslint": "^9.39.1",
     "typescript": "^5.9.3"

@@ -44,7 +44,7 @@ export const gscPlugin = definePlugin<GscPluginConfig | void>((config) => {
   const gscRefreshTask = createGscRefreshTask({ contentTypes });
 
   return {
-    name: "gsc-sanity-plugin",
+    name: "pagebridge-sanity",
     schema: {
       types: [gscSite, gscSnapshot, gscRefreshTask],
     },

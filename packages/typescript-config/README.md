@@ -1,6 +1,6 @@
-# @content-keep/typescript-config
+# @pagebridge/typescript-config
 
-Shared TypeScript configurations for Content Keep packages.
+Shared TypeScript configurations for PageBridge packages.
 
 ## Installation
 
@@ -9,7 +9,7 @@ This is a private workspace package, available only within the monorepo.
 ```json
 {
   "devDependencies": {
-    "@content-keep/typescript-config": "workspace:^"
+    "@pagebridge/typescript-config": "workspace:^"
   }
 }
 ```
@@ -22,7 +22,7 @@ Base configuration for all TypeScript projects.
 
 ```json
 {
-  "extends": "@content-keep/typescript-config/base.json"
+  "extends": "@pagebridge/typescript-config/base.json"
 }
 ```
 
@@ -32,7 +32,7 @@ Configuration for publishable library packages. Includes stricter settings and d
 
 ```json
 {
-  "extends": "@content-keep/typescript-config/library.json"
+  "extends": "@pagebridge/typescript-config/library.json"
 }
 ```
 
@@ -42,7 +42,7 @@ Configuration for React component libraries. Extends library config with JSX sup
 
 ```json
 {
-  "extends": "@content-keep/typescript-config/react-library.json"
+  "extends": "@pagebridge/typescript-config/react-library.json"
 }
 ```
 
@@ -52,7 +52,7 @@ Configuration for Next.js applications.
 
 ```json
 {
-  "extends": "@content-keep/typescript-config/nextjs.json"
+  "extends": "@pagebridge/typescript-config/nextjs.json"
 }
 ```
 
@@ -62,7 +62,7 @@ Create a `tsconfig.json` in your package:
 
 ```json
 {
-  "extends": "@content-keep/typescript-config/library.json",
+  "extends": "@pagebridge/typescript-config/library.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src"

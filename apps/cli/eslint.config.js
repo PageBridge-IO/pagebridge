@@ -1,3 +1,3 @@
-import { config } from "@content-keep/eslint-config/base";
+import { config } from "@pagebridge/eslint-config/base";
 
 export default [...config];
