@@ -1,6 +1,7 @@
 {
   "name": "@pagebridge/sanity",
   "version": "0.0.1",
+  "license": "MIT",
   "private": false,
   "type": "module",
   "exports": {
