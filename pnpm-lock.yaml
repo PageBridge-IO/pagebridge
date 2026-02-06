@@ -92,43 +92,6 @@ importers:
         specifier: 5.9.2
         version: 5.9.2
 
-  apps/web:
-    dependencies:
-      '@pagebridge/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      next:
-        specifier: 16.1.0
-        version: 16.1.0(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      react:
-        specifier: ^19.2.0
-        version: 19.2.4
-      react-dom:
-        specifier: ^19.2.0
-        version: 19.2.4(react@19.2.4)
-    devDependencies:
-      '@pagebridge/eslint-config':
-        specifier: workspace:*
-        version: link:../../packages/eslint-config
-      '@pagebridge/typescript-config':
-        specifier: workspace:*
-        version: link:../../packages/typescript-config
-      '@types/node':
-        specifier: ^22.15.3
-        version: 22.19.9
-      '@types/react':
-        specifier: 19.2.2
-        version: 19.2.2
-      '@types/react-dom':
-        specifier: 19.2.2
-        version: 19.2.2(@types/react@19.2.2)
-      eslint:
-        specifier: ^9.39.1
-        version: 9.39.2(jiti@2.6.1)
-      typescript:
-        specifier: 5.9.2
-        version: 5.9.2
-
   packages/core:
     dependencies:
       '@pagebridge/db':
