@@ -64,6 +64,21 @@ export const createGscSnapshot = (options: GscSnapshotOptions = {}) => {
         type: "number",
       }),
       defineField({
+        name: "weeklyBreakdown",
+        title: "Weekly Breakdown",
+        type: "array",
+        of: [
+          {
+            type: "object",
+            fields: [
+              defineField({ name: "weekStart", type: "date" }),
+              defineField({ name: "clicks", type: "number" }),
+              defineField({ name: "impressions", type: "number" }),
+            ],
+          },
+        ],
+      }),
+      defineField({
         name: "topQueries",
         title: "Top Queries",
         type: "array",

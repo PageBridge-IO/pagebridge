@@ -9,6 +9,12 @@ interface IndexStatus {
   lastCrawlTime: string | null;
 }
 
+interface WeeklyBreakdownEntry {
+  weekStart: string;
+  clicks: number;
+  impressions: number;
+}
+
 interface PerformanceData {
   clicks: number;
   impressions: number;
@@ -16,6 +22,7 @@ interface PerformanceData {
   position: number;
   positionDelta: number;
   topQueries: { query: string; clicks: number; position: number }[];
+  weeklyBreakdown?: WeeklyBreakdownEntry[];
   lastUpdated: string;
   indexStatus?: IndexStatus;
 }
@@ -40,6 +47,7 @@ export function SearchPerformancePane({
           ctr,
           position,
           topQueries,
+          weeklyBreakdown,
           fetchedAt,
           indexStatus
         }`,
@@ -59,6 +67,7 @@ export function SearchPerformancePane({
           positionDelta: previousSnapshot
             ? snapshot.position - previousSnapshot.position
             : 0,
+          weeklyBreakdown: snapshot.weeklyBreakdown,
           lastUpdated: snapshot.fetchedAt,
           indexStatus: snapshot.indexStatus,
         });
@@ -111,6 +120,10 @@ export function SearchPerformancePane({
             invertTrend
           />
         </Flex>
+
+        {data.weeklyBreakdown && data.weeklyBreakdown.length > 0 && (
+          <WeeklyChart data={data.weeklyBreakdown} />
+        )}
 
         {data.topQueries?.length > 0 && (
           <Box>
@@ -178,6 +191,139 @@ function MetricCard({ label, value, trend, invertTrend }: MetricCardProps) {
               {Math.abs(trend).toFixed(1)}
             </Badge>
           )}
+        </Flex>
+      </Stack>
+    </Card>
+  );
+}
+
+interface WeeklyChartProps {
+  data: WeeklyBreakdownEntry[];
+}
+
+function formatWeekLabel(weekStart: string): string {
+  const date = new Date(weekStart + "T00:00:00");
+  const endDate = new Date(date);
+  endDate.setDate(endDate.getDate() + 6);
+  const startMonth = date.toLocaleDateString("en-US", { month: "short" });
+  const endMonth = endDate.toLocaleDateString("en-US", { month: "short" });
+  const startDay = date.getDate();
+  const endDay = endDate.getDate();
+  if (startMonth === endMonth) {
+    return `${startMonth} ${startDay}-${endDay}`;
+  }
+  return `${startMonth} ${startDay}-${endMonth} ${endDay}`;
+}
+
+function WeeklyChart({ data }: WeeklyChartProps) {
+  const maxValue = Math.max(
+    ...data.map((w) => Math.max(w.clicks, w.impressions)),
+    1,
+  );
+  const barHeight = 120;
+
+  return (
+    <Card padding={3} radius={2} shadow={1}>
+      <Stack space={3}>
+        <Flex justify="space-between" align="center">
+          <Text size={1} weight="semibold">
+            Weekly Trend
+          </Text>
+          <Flex gap={3} align="center">
+            <Flex gap={1} align="center">
+              <Box
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 2,
+                  backgroundColor: "#2276fc",
+                }}
+              />
+              <Text size={0} muted>
+                Clicks
+              </Text>
+            </Flex>
+            <Flex gap={1} align="center">
+              <Box
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: 2,
+                  backgroundColor: "#8fc7ff",
+                }}
+              />
+              <Text size={0} muted>
+                Impressions
+              </Text>
+            </Flex>
+          </Flex>
+        </Flex>
+
+        <Flex gap={2} align="flex-end" style={{ height: barHeight }}>
+          {data.map((week, i) => {
+            const clicksHeight = (week.clicks / maxValue) * barHeight;
+            const impressionsHeight =
+              (week.impressions / maxValue) * barHeight;
+            return (
+              <Box key={i} style={{ flex: 1, height: "100%" }}>
+                <Flex
+                  gap={1}
+                  align="flex-end"
+                  justify="center"
+                  style={{ height: "100%" }}
+                >
+                  <Tooltip
+                    content={
+                      <Box padding={2}>
+                        <Text size={0}>{week.clicks} clicks</Text>
+                      </Box>
+                    }
+                    placement="top"
+                  >
+                    <Box
+                      style={{
+                        width: "40%",
+                        height: Math.max(clicksHeight, 2),
+                        backgroundColor: "#2276fc",
+                        borderRadius: "2px 2px 0 0",
+                        cursor: "default",
+                      }}
+                    />
+                  </Tooltip>
+                  <Tooltip
+                    content={
+                      <Box padding={2}>
+                        <Text size={0}>
+                          {week.impressions} impressions
+                        </Text>
+                      </Box>
+                    }
+                    placement="top"
+                  >
+                    <Box
+                      style={{
+                        width: "40%",
+                        height: Math.max(impressionsHeight, 2),
+                        backgroundColor: "#8fc7ff",
+                        borderRadius: "2px 2px 0 0",
+                        cursor: "default",
+                      }}
+                    />
+                  </Tooltip>
+                </Flex>
+              </Box>
+            );
+          })}
+        </Flex>
+
+        <Flex gap={2}>
+          {data.map((week, i) => (
+            <Box key={i} style={{ flex: 1, textAlign: "center" }}>
+              <Text size={0} muted>
+                {formatWeekLabel(week.weekStart)}
+              </Text>
+            </Box>
+          ))}
         </Flex>
       </Stack>
     </Card>

@@ -200,6 +200,17 @@ export class SyncEngine {
           endDate,
         );
 
+        // Get weekly breakdown for last28 period
+        const weeklyBreakdown =
+          period === "last28"
+            ? await this.getWeeklyBreakdown(
+                resolvedSiteUrl,
+                match.gscUrl,
+                startDate,
+                endDate,
+              )
+            : undefined;
+
         // Get index status from database
         const indexStatusData = await this.getIndexStatus(
           resolvedSiteUrl,
@@ -222,6 +233,7 @@ export class SyncEngine {
           ctr: metrics.ctr,
           position: metrics.position,
           topQueries,
+          weeklyBreakdown,
           fetchedAt: new Date().toISOString(),
           indexStatus: indexStatusData
             ? {
@@ -346,6 +358,57 @@ export class SyncEngine {
       lastCrawlTime: row.lastCrawlTime,
       robotsTxtState: row.robotsTxtState,
     };
+  }
+
+  private async getWeeklyBreakdown(
+    siteId: string,
+    page: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{ weekStart: string; clicks: number; impressions: number }[]> {
+    const results = await this.db
+      .select({
+        date: searchAnalytics.date,
+        clicks: searchAnalytics.clicks,
+        impressions: searchAnalytics.impressions,
+      })
+      .from(searchAnalytics)
+      .where(
+        and(
+          eq(searchAnalytics.siteId, siteId),
+          eq(searchAnalytics.page, page),
+          gte(searchAnalytics.date, formatDate(startDate)),
+          lte(searchAnalytics.date, formatDate(endDate)),
+        ),
+      );
+
+    // Build 4 weekly buckets from startDate
+    const weeks: { weekStart: Date; clicks: number; impressions: number }[] =
+      [];
+    for (let i = 0; i < 4; i++) {
+      const weekStart = new Date(startDate);
+      weekStart.setDate(weekStart.getDate() + i * 7);
+      weeks.push({ weekStart, clicks: 0, impressions: 0 });
+    }
+
+    for (const row of results) {
+      if (!row.date) continue;
+      const rowDate = new Date(row.date);
+      // Find which weekly bucket this date belongs to
+      for (let i = weeks.length - 1; i >= 0; i--) {
+        if (rowDate >= weeks[i]!.weekStart) {
+          weeks[i]!.clicks += row.clicks ?? 0;
+          weeks[i]!.impressions += row.impressions ?? 0;
+          break;
+        }
+      }
+    }
+
+    return weeks.map((w) => ({
+      weekStart: formatDate(w.weekStart),
+      clicks: w.clicks,
+      impressions: w.impressions,
+    }));
   }
 
   private async getAggregatedMetrics(
