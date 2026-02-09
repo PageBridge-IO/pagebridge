@@ -7,8 +7,7 @@ import { ChartUpwardIcon, EarthGlobeIcon } from "@sanity/icons";
 import { gscSite } from "./schemas/gscSite";
 import { createGscSnapshot } from "./schemas/gscSnapshot";
 import { createGscRefreshTask } from "./schemas/gscRefreshTask";
-import { RefreshQueueTool } from "./components/RefreshQueueTool";
-import { SearchPerformancePane } from "./components/SearchPerformancePane";
+import type { ComponentType } from "react";
 
 export interface GscPluginConfig {
   /**
@@ -66,9 +65,7 @@ export const createPageBridgeStructure = (S: StructureBuilder) =>
           S.listItem()
             .title("Refresh Tasks")
             .schemaType("gscRefreshTask")
-            .child(
-              S.documentTypeList("gscRefreshTask").title("Refresh Tasks"),
-            ),
+            .child(S.documentTypeList("gscRefreshTask").title("Refresh Tasks")),
         ]),
     );
 
@@ -81,6 +78,10 @@ export const createGscStructureResolver = (
 ): DefaultDocumentNodeResolver => {
   return (S, { schemaType }) => {
     if (contentTypes.includes(schemaType)) {
+      // Lazy import to avoid loading React component during schema extraction
+      const SearchPerformancePane: ComponentType<any> =
+        require("./components/SearchPerformancePane").SearchPerformancePane;
+
       return S.document().views([
         S.view.form(),
         S.view
@@ -98,6 +99,10 @@ export const gscPlugin = definePlugin<GscPluginConfig | void>((config) => {
 
   const gscSnapshot = createGscSnapshot({ contentTypes });
   const gscRefreshTask = createGscRefreshTask({ contentTypes });
+
+  // Lazy import to avoid loading React component during schema extraction
+  const RefreshQueueTool: ComponentType<any> =
+    require("./components/RefreshQueueTool").RefreshQueueTool;
 
   return {
     name: "pagebridge-sanity",
