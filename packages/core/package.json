@@ -1,6 +1,6 @@
 {
   "name": "@pagebridge/core",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Core engine for PageBridge — GSC sync, URL matching, content decay detection, and task generation",
   "license": "MIT",
   "private": false,
@@ -16,6 +16,11 @@
     "search-analytics",
     "sync-engine",
     "sanity"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
   "exports": {
     ".": {

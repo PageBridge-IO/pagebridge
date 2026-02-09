@@ -1,0 +1,24 @@
+# Source files (only publish built dist/)
+src/
+*.ts
+!*.d.ts
+tsconfig.json
+eslint.config.js
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*-key.json
+service-account*.json
+credentials*.json
+
+# Development
+node_modules/
+.turbo/
+*.log
+.DS_Store
+
+# Tests and CI
+coverage/
+.github/
