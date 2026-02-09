@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "private": false,
   "type": "module",
+  "files": ["dist", "drizzle"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

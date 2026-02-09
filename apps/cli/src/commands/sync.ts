@@ -1,6 +1,5 @@
 import { Command } from "commander";
 import { createClient as createSanityClient } from "@sanity/client";
-import postgres from "postgres";
 import {
   GSCClient,
   SyncEngine,
@@ -10,7 +9,10 @@ import {
   type MatchResult,
   type UnmatchReason,
 } from "@pagebridge/core";
-import { createDbWithClient, unmatchDiagnostics } from "@pagebridge/db";
+import { createDb, sql, unmatchDiagnostics } from "@pagebridge/db";
+import { resolve, requireConfig } from "../resolve-config.js";
+import { log } from "../logger.js";
+import { migrateIfRequested } from "../migrate.js";
 
 function daysAgo(days: number): Date {
   const date = new Date();
@@ -24,7 +26,7 @@ function createTimer(debug: boolean) {
     end: (label: string, startTime: number) => {
       if (debug) {
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
-        console.log(`[DEBUG] ${label} completed in ${elapsed}s`);
+        log.debug(`${label} completed in ${elapsed}s`, true);
       }
     },
   };
@@ -40,43 +42,104 @@ export const syncCommand = new Command("sync")
   .option("--diagnose", "Show detailed diagnostics for unmatched URLs")
   .option("--diagnose-url <url>", "Diagnose why a specific URL is not matching")
   .option("--debug", "Enable debug logging with timing information")
+  .option("--migrate", "Run database migrations before syncing")
+  .option("--google-service-account <json>", "Google service account JSON")
+  .option("--db-url <url>", "PostgreSQL connection string")
+  .option("--sanity-project-id <id>", "Sanity project ID")
+  .option("--sanity-dataset <name>", "Sanity dataset name")
+  .option("--sanity-token <token>", "Sanity API token")
+  .option("--site-url <url>", "Your website base URL for URL matching")
   .action(async (options) => {
     const timer = createTimer(options.debug);
     const syncStartTime = timer.start();
-    const requiredEnvVars = [
-      "GOOGLE_SERVICE_ACCOUNT",
-      "DATABASE_URL",
-      "SANITY_PROJECT_ID",
-      "SANITY_DATASET",
-      "SANITY_TOKEN",
-      "SITE_URL",
-    ];
 
-    for (const envVar of requiredEnvVars) {
-      if (!process.env[envVar]) {
-        console.error(`Missing required environment variable: ${envVar}`);
-        process.exit(1);
-      }
+    // Validate --quiet-period
+    const quietPeriodDays = parseInt(options.quietPeriod as string);
+    if (isNaN(quietPeriodDays)) {
+      log.error(`Invalid --quiet-period value: "${options.quietPeriod}". Must be a number.`);
+      process.exit(1);
     }
+
+    const googleServiceAccount = resolve(options.googleServiceAccount, "GOOGLE_SERVICE_ACCOUNT");
+    const dbUrl = resolve(options.dbUrl, "DATABASE_URL");
+    const sanityProjectId = resolve(options.sanityProjectId, "SANITY_PROJECT_ID");
+    const sanityDataset = resolve(options.sanityDataset, "SANITY_DATASET");
+    const sanityToken = resolve(options.sanityToken, "SANITY_TOKEN");
+    const siteUrl = resolve(options.siteUrl, "SITE_URL");
+
+    requireConfig([
+      { name: "GOOGLE_SERVICE_ACCOUNT", flag: "--google-service-account <json>", envVar: "GOOGLE_SERVICE_ACCOUNT", value: googleServiceAccount },
+      { name: "DATABASE_URL", flag: "--db-url <url>", envVar: "DATABASE_URL", value: dbUrl },
+      { name: "SANITY_PROJECT_ID", flag: "--sanity-project-id <id>", envVar: "SANITY_PROJECT_ID", value: sanityProjectId },
+      { name: "SANITY_DATASET", flag: "--sanity-dataset <name>", envVar: "SANITY_DATASET", value: sanityDataset },
+      { name: "SANITY_TOKEN", flag: "--sanity-token <token>", envVar: "SANITY_TOKEN", value: sanityToken },
+      { name: "SITE_URL", flag: "--site-url <url>", envVar: "SITE_URL", value: siteUrl },
+    ]);
+
+    // Run migrations if requested
+    await migrateIfRequested(!!options.migrate, dbUrl!);
 
     let t = timer.start();
     const sanity = createSanityClient({
-      projectId: process.env.SANITY_PROJECT_ID!,
-      dataset: process.env.SANITY_DATASET!,
-      token: process.env.SANITY_TOKEN!,
+      projectId: sanityProjectId!,
+      dataset: sanityDataset!,
+      token: sanityToken!,
       apiVersion: "2024-01-01",
       useCdn: false,
     });
 
-    const sql = postgres(process.env.DATABASE_URL!);
-    const db = createDbWithClient(sql);
+    const { db, close } = createDb(dbUrl!);
 
-    const gsc = new GSCClient({
-      credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT!),
-    });
+    let credentials: { client_email: string; private_key: string };
+    try {
+      credentials = JSON.parse(googleServiceAccount!) as typeof credentials;
+    } catch {
+      log.error("Failed to parse GOOGLE_SERVICE_ACCOUNT as JSON");
+      await close();
+      process.exit(1);
+    }
+
+    const gsc = new GSCClient({ credentials });
     timer.end("Client initialization", t);
 
-    console.log(`Starting sync for ${options.site}...`);
+    // Register shutdown handlers
+    const shutdown = async () => {
+      log.warn("Received shutdown signal, closing connections...");
+      await close();
+      process.exit(130);
+    };
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
+
+    // Pre-flight connection validation
+    try {
+      log.info("Validating connections...");
+
+      t = timer.start();
+      await db.execute(sql`SELECT 1`);
+      timer.end("DB connection check", t);
+
+      t = timer.start();
+      await sanity.fetch('*[_type == "gscSite"][0]{ _id }');
+      timer.end("Sanity connection check", t);
+
+      t = timer.start();
+      const sites = await gsc.listSites();
+      timer.end("GSC connection check", t);
+      if (!sites.includes(options.site as string)) {
+        log.warn(`Site "${options.site}" not found in GSC site list. It may be new or the service account may lack access.`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(`Pre-flight connection check failed: ${message}`);
+      await close();
+      process.exitCode = 1;
+      process.removeListener("SIGTERM", shutdown);
+      process.removeListener("SIGINT", shutdown);
+      return;
+    }
+
+    log.info(`Starting sync for ${options.site}...`);
 
     // Find or create the gscSite document in Sanity
     t = timer.start();
@@ -96,7 +159,7 @@ export const syncCommand = new Command("sync")
     );
 
     if (!siteDoc) {
-      console.log(`Creating gscSite document for ${options.site}...`);
+      log.info(`Creating gscSite document for ${options.site}...`);
       siteDoc = await sanity.create({
         _type: "gscSite",
         siteUrl: options.site,
@@ -114,16 +177,16 @@ export const syncCommand = new Command("sync")
     const slugField = siteDoc.slugField ?? "slug";
     const pathPrefix = siteDoc.pathPrefix ?? undefined;
 
-    console.log(`Configuration:`);
-    console.log(`   Content types: ${contentTypes.join(", ")}`);
-    console.log(`   Slug field: ${slugField}`);
-    console.log(`   Path prefix: ${pathPrefix ?? "(none)"}`);
+    log.info(`Configuration:`);
+    log.info(`   Content types: ${contentTypes.join(", ")}`);
+    log.info(`   Slug field: ${slugField}`);
+    log.info(`   Path prefix: ${pathPrefix ?? "(none)"}`);
 
     const syncEngine = new SyncEngine({ gsc, db, sanity });
     const matcher = new URLMatcher(sanity, {
       contentTypes,
       slugField,
-      baseUrl: process.env.SITE_URL!,
+      baseUrl: siteUrl!,
       pathPrefix,
     });
 
@@ -136,7 +199,7 @@ export const syncCommand = new Command("sync")
       });
       timer.end("GSC data sync", t);
 
-      console.log(`Processed ${rowsProcessed} rows for ${pages.length} pages`);
+      log.info(`Processed ${rowsProcessed} rows for ${pages.length} pages`);
 
       t = timer.start();
       const matches = await matcher.matchUrls(pages);
@@ -147,13 +210,13 @@ export const syncCommand = new Command("sync")
       );
       const unmatched = matches.filter((m) => !m.sanityId);
 
-      console.log(
+      log.info(
         `Matched ${matched.length}/${pages.length} URLs to Sanity documents`,
       );
 
       // Store diagnostics for unmatched URLs
       if (unmatched.length > 0) {
-        console.log(`${unmatched.length} unmatched URLs`);
+        log.info(`${unmatched.length} unmatched URLs`);
 
         // Store diagnostics in database
         t = timer.start();
@@ -205,7 +268,7 @@ export const syncCommand = new Command("sync")
 
         // Show detailed diagnostics if --diagnose flag is set
         if (options.diagnose) {
-          console.log(`\nUnmatched URL Diagnostics:\n`);
+          log.info(`\nUnmatched URL Diagnostics:\n`);
 
           // Group by reason
           const byReason = new Map<UnmatchReason, MatchResult[]>();
@@ -216,69 +279,68 @@ export const syncCommand = new Command("sync")
           }
 
           for (const [reason, urls] of byReason) {
-            console.log(
+            log.info(
               `  ${getReasonEmoji(reason)} ${getReasonDescription(reason)} (${urls.length}):`,
             );
             const toShow = urls.slice(0, 5);
             for (const u of toShow) {
-              console.log(`     ${u.gscUrl}`);
+              log.info(`     ${u.gscUrl}`);
               if (u.extractedSlug) {
-                console.log(`        Extracted slug: "${u.extractedSlug}"`);
+                log.info(`        Extracted slug: "${u.extractedSlug}"`);
               }
               if (u.diagnostics?.similarSlugs?.length) {
-                console.log(`        Similar slugs in Sanity:`);
+                log.info(`        Similar slugs in Sanity:`);
                 for (const similar of u.diagnostics.similarSlugs) {
-                  console.log(`          - ${similar}`);
+                  log.info(`          - ${similar}`);
                 }
               }
             }
             if (urls.length > 5) {
-              console.log(`     ... and ${urls.length - 5} more`);
+              log.info(`     ... and ${urls.length - 5} more`);
             }
-            console.log();
           }
         } else if (unmatched.length <= 10) {
-          unmatched.forEach((u) => console.log(`   - ${u.gscUrl}`));
-          console.log(`\n   Run with --diagnose for detailed diagnostics`);
+          unmatched.forEach((u) => log.info(`   - ${u.gscUrl}`));
+          log.info(`\n   Run with --diagnose for detailed diagnostics`);
         } else {
-          console.log(`   Run with --diagnose to see detailed diagnostics`);
+          log.info(`   Run with --diagnose to see detailed diagnostics`);
         }
       }
 
       // Handle --diagnose-url for a specific URL
       if (options.diagnoseUrl) {
-        const targetUrl = options.diagnoseUrl;
+        const targetUrl = options.diagnoseUrl as string;
         const allUrls = [targetUrl];
         const [result] = await matcher.matchUrls(allUrls);
-        console.log(`\nDiagnostics for: ${targetUrl}\n`);
+        log.info(`\nDiagnostics for: ${targetUrl}\n`);
         if (result) {
-          console.log(`   Matched: ${result.sanityId ? "Yes" : "No"}`);
-          console.log(
+          log.info(`   Matched: ${result.sanityId ? "Yes" : "No"}`);
+          log.info(
             `   Reason: ${getReasonDescription(result.unmatchReason)}`,
           );
           if (result.extractedSlug) {
-            console.log(`   Extracted slug: "${result.extractedSlug}"`);
+            log.info(`   Extracted slug: "${result.extractedSlug}"`);
           }
           if (result.matchedSlug) {
-            console.log(`   Matched to Sanity slug: "${result.matchedSlug}"`);
+            log.info(`   Matched to Sanity slug: "${result.matchedSlug}"`);
           }
           if (result.diagnostics) {
-            console.log(
+            log.info(
               `   Normalized URL: ${result.diagnostics.normalizedUrl}`,
             );
-            console.log(
+            log.info(
               `   Path after prefix: ${result.diagnostics.pathAfterPrefix}`,
             );
-            console.log(
+            log.info(
               `   Configured prefix: ${result.diagnostics.configuredPrefix ?? "(none)"}`,
             );
-            console.log(
+            log.info(
               `   Available Sanity slugs: ${result.diagnostics.availableSlugsCount}`,
             );
             if (result.diagnostics.similarSlugs?.length) {
-              console.log(`   Similar slugs in Sanity:`);
+              log.info(`   Similar slugs in Sanity:`);
               for (const similar of result.diagnostics.similarSlugs) {
-                console.log(`      - ${similar}`);
+                log.info(`      - ${similar}`);
               }
             }
           }
@@ -287,7 +349,7 @@ export const syncCommand = new Command("sync")
 
       // Check index status if requested
       if (options.checkIndex && matched.length > 0) {
-        console.log(`\nChecking index status for ${matched.length} pages...`);
+        log.info(`\nChecking index status for ${matched.length} pages...`);
         t = timer.start();
         const matchedUrls = matched.map((m) => m.gscUrl);
         const indexResult = await syncEngine.syncIndexStatus(
@@ -295,7 +357,7 @@ export const syncCommand = new Command("sync")
           matchedUrls,
         );
         timer.end("Index status check", t);
-        console.log(
+        log.info(
           `   Indexed: ${indexResult.indexed}, Not indexed: ${indexResult.notIndexed}, Skipped: ${indexResult.skipped}`,
         );
       }
@@ -309,19 +371,19 @@ export const syncCommand = new Command("sync")
           publishedDates,
           {
             enabled: true,
-            days: parseInt(options.quietPeriod),
+            days: quietPeriodDays,
           },
         );
         timer.end("Decay detection", t);
 
-        console.log(`Detected ${signals.length} decay signals`);
+        log.info(`Detected ${signals.length} decay signals`);
 
         if (options.dryRun) {
-          console.log("\nWould create the following tasks:");
+          log.info("\nWould create the following tasks:");
           signals.forEach((s) => {
-            console.log(`   [${s.severity.toUpperCase()}] ${s.page}`);
-            console.log(`      Reason: ${s.reason}`);
-            console.log(
+            log.info(`   [${s.severity.toUpperCase()}] ${s.page}`);
+            log.info(`      Reason: ${s.reason}`);
+            log.info(
               `      Position: ${s.metrics.positionBefore} -> ${s.metrics.positionNow}`,
             );
           });
@@ -334,7 +396,7 @@ export const syncCommand = new Command("sync")
             matches,
           );
           timer.end("Task generation", t);
-          console.log(`Created ${created} new refresh tasks`);
+          log.info(`Created ${created} new refresh tasks`);
         }
       }
 
@@ -342,16 +404,19 @@ export const syncCommand = new Command("sync")
         t = timer.start();
         await syncEngine.writeSnapshots(siteId, matched);
         timer.end("Write Sanity snapshots", t);
-        console.log(`Updated Sanity snapshots`);
+        log.info(`Updated Sanity snapshots`);
       }
 
       timer.end("Total sync", syncStartTime);
-      console.log(`\nSync complete!`);
+      log.info(`\nSync complete!`);
     } catch (error) {
-      console.error("Sync failed:", error);
-      process.exit(1);
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(`Sync failed: ${message}`);
+      process.exitCode = 1;
     } finally {
-      await sql.end();
+      await close();
+      process.removeListener("SIGTERM", shutdown);
+      process.removeListener("SIGINT", shutdown);
     }
   });
 

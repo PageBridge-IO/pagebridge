@@ -1,11 +1,13 @@
 import { Command } from "commander";
-import postgres from "postgres";
 import {
-  createDbWithClient,
+  createDb,
   unmatchDiagnostics,
   eq,
   desc,
 } from "@pagebridge/db";
+import { resolve, requireConfig } from "../resolve-config.js";
+import { log } from "../logger.js";
+import { migrateIfRequested } from "../migrate.js";
 
 export const diagnoseCommand = new Command("diagnose")
   .description("View diagnostics for unmatched URLs")
@@ -13,14 +15,28 @@ export const diagnoseCommand = new Command("diagnose")
   .option("--reason <reason>", "Filter by unmatch reason")
   .option("--limit <n>", "Limit number of results", "20")
   .option("--json", "Output as JSON")
+  .option("--migrate", "Run database migrations before querying")
+  .option("--db-url <url>", "PostgreSQL connection string")
   .action(async (options) => {
-    if (!process.env.DATABASE_URL) {
-      console.error("Missing required environment variable: DATABASE_URL");
-      process.exit(1);
-    }
+    const dbUrl = resolve(options.dbUrl, "DATABASE_URL");
 
-    const sql = postgres(process.env.DATABASE_URL);
-    const db = createDbWithClient(sql);
+    requireConfig([
+      { name: "DATABASE_URL", flag: "--db-url <url>", envVar: "DATABASE_URL", value: dbUrl },
+    ]);
+
+    // Run migrations if requested
+    await migrateIfRequested(!!options.migrate, dbUrl!);
+
+    const { db, close } = createDb(dbUrl!);
+
+    // Register shutdown handlers
+    const shutdown = async () => {
+      log.warn("Received shutdown signal, closing connections...");
+      await close();
+      process.exit(130);
+    };
+    process.on("SIGTERM", shutdown);
+    process.on("SIGINT", shutdown);
 
     try {
       const query = db
@@ -38,8 +54,8 @@ export const diagnoseCommand = new Command("diagnose")
       }
 
       if (results.length === 0) {
-        console.log(`No unmatched URLs found for ${options.site}`);
-        console.log(
+        log.info(`No unmatched URLs found for ${options.site}`);
+        log.info(
           `Run 'sync --site ${options.site}' first to generate diagnostics.`,
         );
         return;
@@ -53,48 +69,52 @@ export const diagnoseCommand = new Command("diagnose")
         byReason.set(r.unmatchReason, existing);
       }
 
-      console.log(`\nUnmatched URL Diagnostics for ${options.site}\n`);
-      console.log(`Total: ${results.length} unmatched URLs\n`);
+      log.info(`\nUnmatched URL Diagnostics for ${options.site}\n`);
+      log.info(`Total: ${results.length} unmatched URLs\n`);
 
       for (const [reason, items] of byReason) {
-        console.log(
+        log.info(
           `${getReasonEmoji(reason)} ${getReasonDescription(reason)} (${items.length}):`,
         );
-        console.log();
 
         for (const item of items) {
-          console.log(`  ${item.gscUrl}`);
+          log.info(`  ${item.gscUrl}`);
           if (item.extractedSlug) {
-            console.log(`    Extracted slug: "${item.extractedSlug}"`);
+            log.info(`    Extracted slug: "${item.extractedSlug}"`);
           }
           if (item.similarSlugs) {
             try {
               const similar = JSON.parse(item.similarSlugs) as string[];
               if (similar.length > 0) {
-                console.log(`    Similar slugs in Sanity:`);
+                log.info(`    Similar slugs in Sanity:`);
                 for (const s of similar) {
-                  console.log(`      - ${s}`);
+                  log.info(`      - ${s}`);
                 }
               }
             } catch {
               // Ignore parse errors
             }
           }
-          console.log();
         }
       }
 
-      console.log(`\nTo fix unmatched URLs:`);
-      console.log(
+      log.info(`\nTo fix unmatched URLs:`);
+      log.info(
         `  1. Check if the Sanity document exists with the correct slug`,
       );
-      console.log(`  2. Verify the document type is in the contentTypes list`);
-      console.log(`  3. Ensure the slug field name matches your configuration`);
-      console.log(
+      log.info(`  2. Verify the document type is in the contentTypes list`);
+      log.info(`  3. Ensure the slug field name matches your configuration`);
+      log.info(
         `  4. If using a path prefix, verify it matches your URL structure`,
       );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(`Diagnose failed: ${message}`);
+      process.exitCode = 1;
     } finally {
-      await sql.end();
+      await close();
+      process.removeListener("SIGTERM", shutdown);
+      process.removeListener("SIGINT", shutdown);
     }
   });
 

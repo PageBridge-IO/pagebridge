@@ -1,23 +1,27 @@
 import { Command } from "commander";
 import { GSCClient } from "@pagebridge/core";
+import { resolve, requireConfig } from "../resolve-config.js";
+import { log } from "../logger.js";
 
 export const listSitesCommand = new Command("list-sites")
   .description("List all sites the service account has access to")
-  .action(async () => {
-    if (!process.env.GOOGLE_SERVICE_ACCOUNT) {
-      console.error("❌ Missing GOOGLE_SERVICE_ACCOUNT environment variable");
-      process.exit(1);
-    }
+  .option("--google-service-account <json>", "Google service account JSON")
+  .action(async (options) => {
+    const googleServiceAccount = resolve(options.googleServiceAccount, "GOOGLE_SERVICE_ACCOUNT");
+
+    requireConfig([
+      { name: "GOOGLE_SERVICE_ACCOUNT", flag: "--google-service-account <json>", envVar: "GOOGLE_SERVICE_ACCOUNT", value: googleServiceAccount },
+    ]);
 
     let credentials;
     try {
-      credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+      credentials = JSON.parse(googleServiceAccount!);
     } catch {
-      console.error("❌ Failed to parse GOOGLE_SERVICE_ACCOUNT as JSON");
+      log.error("Failed to parse GOOGLE_SERVICE_ACCOUNT as JSON");
       process.exit(1);
     }
 
-    console.log(`🔑 Using service account: ${credentials.client_email}`);
+    log.info(`Using service account: ${credentials.client_email}`);
 
     const gsc = new GSCClient({ credentials });
 
@@ -25,23 +29,23 @@ export const listSitesCommand = new Command("list-sites")
       const sites = await gsc.listSites();
 
       if (sites.length === 0) {
-        console.log(
-          "\n⚠️  No sites found. The service account has no access to any GSC properties.",
+        log.warn("No sites found. The service account has no access to any GSC properties.");
+        log.info("\nTo fix this:");
+        log.info(
+          "1. Go to Google Search Console > Settings > Users and permissions",
         );
-        console.log("\nTo fix this:");
-        console.log(
-          "1. Go to Google Search Console → Settings → Users and permissions",
-        );
-        console.log(`2. Add user: ${credentials.client_email}`);
-        console.log("3. Set permission level to 'Full'");
+        log.info(`2. Add user: ${credentials.client_email}`);
+        log.info("3. Set permission level to 'Full'");
       } else {
-        console.log(`\n✅ Found ${sites.length} site(s):\n`);
-        sites.forEach((site) => console.log(`   ${site}`));
-        console.log(
+        log.info(`Found ${sites.length} site(s):\n`);
+        sites.forEach((site) => log.info(`   ${site}`));
+        log.info(
           '\nUse one of these exact values with: pnpm sync --site "<value>"',
         );
       }
     } catch (error) {
-      console.error("❌ Failed to list sites:", error);
+      const message = error instanceof Error ? error.message : String(error);
+      log.error(`Failed to list sites: ${message}`);
+      process.exit(1);
     }
   });

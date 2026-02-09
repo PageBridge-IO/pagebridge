@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-import { config } from "dotenv";
-import { resolve } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
-// Load .env from monorepo root
-config({ path: resolve(__dirname, "../../../.env") });
-
 import { program } from "commander";
 import { syncCommand } from "./commands/sync.js";
 import { listSitesCommand } from "./commands/list-sites.js";
