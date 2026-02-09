@@ -1,11 +1,11 @@
-# @pagebridge/sanity-plugin
+# @pagebridge/sanity
 
 Sanity Studio v3 plugin for PageBridge. Provides document schemas, UI components, and tools for viewing search performance data and managing content refresh tasks.
 
 ## Installation
 
 ```bash
-pnpm add @pagebridge/sanity-plugin
+pnpm add @pagebridge/sanity
 ```
 
 ## Setup
@@ -15,14 +15,14 @@ pnpm add @pagebridge/sanity-plugin
 In your `sanity.config.ts`:
 
 ```typescript
-import { defineConfig } from 'sanity';
-import { gscPlugin } from '@pagebridge/sanity-plugin';
+import { defineConfig } from "sanity";
+import { pageBridgePlugin } from "@pagebridge/sanity";
 
 export default defineConfig({
   // ... other config
   plugins: [
-    gscPlugin({
-      contentTypes: ['post', 'page'], // Document types to track
+    pageBridgePlugin({
+      contentTypes: ["post", "page"], // Document types to track
     }),
   ],
 });
@@ -33,20 +33,23 @@ export default defineConfig({
 To display the Performance pane on your content documents:
 
 ```typescript
-import { defineConfig } from 'sanity';
-import { structureTool } from 'sanity/structure';
-import { gscPlugin, createGscStructureResolver } from '@pagebridge/sanity-plugin';
+import { defineConfig } from "sanity";
+import { structureTool } from "sanity/structure";
+import {
+  pageBridgePlugin,
+  createPageBridgeStructureResolver,
+} from "@pagebridge/sanity";
 
 export default defineConfig({
   // ... other config
   plugins: [
     structureTool({
-      structure: createGscStructureResolver({
-        contentTypes: ['post', 'page'],
+      structure: createPageBridgeStructureResolver({
+        contentTypes: ["post", "page"],
       }),
     }),
-    gscPlugin({
-      contentTypes: ['post', 'page'],
+    pageBridgePlugin({
+      contentTypes: ["post", "page"],
     }),
   ],
 });
@@ -60,49 +63,49 @@ The plugin registers three document types:
 
 Represents a Google Search Console property.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| siteUrl | string | GSC site URL (e.g., `sc-domain:example.com`) |
-| slug | slug | URL-friendly identifier |
-| defaultLocale | string | Default locale (default: "en") |
-| pathPrefix | string | Path prefix for URL matching (e.g., `/blog`) |
-| lastSyncedAt | datetime | Last sync timestamp (read-only) |
+| Field         | Type     | Description                                  |
+| ------------- | -------- | -------------------------------------------- |
+| siteUrl       | string   | GSC site URL (e.g., `sc-domain:example.com`) |
+| slug          | slug     | URL-friendly identifier                      |
+| defaultLocale | string   | Default locale (default: "en")               |
+| pathPrefix    | string   | Path prefix for URL matching (e.g., `/blog`) |
+| lastSyncedAt  | datetime | Last sync timestamp (read-only)              |
 
 ### gscSnapshot
 
 Performance metrics snapshot linked to content documents.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| site | reference | Reference to gscSite |
-| page | string | Page URL |
-| linkedDocument | reference | Matched content document |
-| period | string | `last7`, `last28`, or `last90` |
-| clicks | number | Total clicks |
-| impressions | number | Total impressions |
-| ctr | number | Click-through rate |
-| position | number | Average position |
-| topQueries | array | Top search queries with metrics |
-| fetchedAt | datetime | When data was fetched |
-| indexStatus | object | Google index status details |
+| Field          | Type      | Description                     |
+| -------------- | --------- | ------------------------------- |
+| site           | reference | Reference to gscSite            |
+| page           | string    | Page URL                        |
+| linkedDocument | reference | Matched content document        |
+| period         | string    | `last7`, `last28`, or `last90`  |
+| clicks         | number    | Total clicks                    |
+| impressions    | number    | Total impressions               |
+| ctr            | number    | Click-through rate              |
+| position       | number    | Average position                |
+| topQueries     | array     | Top search queries with metrics |
+| fetchedAt      | datetime  | When data was fetched           |
+| indexStatus    | object    | Google index status details     |
 
 ### gscRefreshTask
 
 Content refresh task with decay signal information.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| site | reference | Reference to gscSite |
-| linkedDocument | reference | Content document needing refresh |
-| reason | string | `position_decay`, `low_ctr`, `impressions_drop`, `manual` |
-| severity | string | `low`, `medium`, `high` |
-| status | string | `open`, `snoozed`, `in_progress`, `done`, `dismissed` |
-| snoozedUntil | datetime | When to resurface (if snoozed) |
-| metrics | object | Position, CTR, impressions data |
-| queryContext | array | Top 5 queries with stats |
-| notes | text | Resolution notes |
-| createdAt | datetime | Task creation time |
-| resolvedAt | datetime | Task resolution time |
+| Field          | Type      | Description                                               |
+| -------------- | --------- | --------------------------------------------------------- |
+| site           | reference | Reference to gscSite                                      |
+| linkedDocument | reference | Content document needing refresh                          |
+| reason         | string    | `position_decay`, `low_ctr`, `impressions_drop`, `manual` |
+| severity       | string    | `low`, `medium`, `high`                                   |
+| status         | string    | `open`, `snoozed`, `in_progress`, `done`, `dismissed`     |
+| snoozedUntil   | datetime  | When to resurface (if snoozed)                            |
+| metrics        | object    | Position, CTR, impressions data                           |
+| queryContext   | array     | Top 5 queries with stats                                  |
+| notes          | text      | Resolution notes                                          |
+| createdAt      | datetime  | Task creation time                                        |
+| resolvedAt     | datetime  | Task resolution time                                      |
 
 ## Components
 
@@ -111,13 +114,14 @@ Content refresh task with decay signal information.
 Document view pane showing performance metrics for a content document.
 
 ```typescript
-import { SearchPerformancePane } from '@pagebridge/sanity-plugin';
+import { SearchPerformancePane } from "@pagebridge/sanity";
 
 // Used automatically when you configure the structure resolver
 // Can also be used directly in custom document views
 ```
 
 The pane displays:
+
 - Clicks, impressions, CTR, and position metrics
 - Top search queries driving traffic
 - Google index status
@@ -128,6 +132,7 @@ The pane displays:
 Sanity tool for managing content refresh tasks. Accessible from the Studio sidebar.
 
 Features:
+
 - Filter tasks by status (open, in progress, snoozed, done, dismissed)
 - Sort by severity or creation date
 - View decay signal details
@@ -136,16 +141,16 @@ Features:
 
 ## Configuration Options
 
-### gscPlugin
+### pageBridgePlugin
 
 ```typescript
-interface GscPluginConfig {
+interface PageBridgePluginConfig {
   // Document types that can be linked to snapshots and tasks
   contentTypes: string[];
 }
 ```
 
-### createGscStructureResolver
+### createPageBridgeStructureResolver
 
 ```typescript
 interface StructureResolverConfig {
@@ -163,16 +168,16 @@ import {
   gscSite,
   createGscSnapshot,
   createGscRefreshTask,
-} from '@pagebridge/sanity-plugin/schemas';
+} from "@pagebridge/sanity/schemas";
 
 // Create snapshot schema with custom content types
 const customSnapshot = createGscSnapshot({
-  contentTypes: ['article', 'guide'],
+  contentTypes: ["article", "guide"],
 });
 
 // Create task schema with custom content types
 const customTask = createGscRefreshTask({
-  contentTypes: ['article', 'guide'],
+  contentTypes: ["article", "guide"],
 });
 ```
 
@@ -192,11 +197,17 @@ The components use Sanity UI and follow the Studio's theme. No additional CSS is
 
 ```typescript
 // Plugin
-export { gscPlugin, createGscStructureResolver } from '@pagebridge/sanity-plugin';
-export type { GscPluginConfig } from '@pagebridge/sanity-plugin';
+export {
+  pageBridgePlugin,
+  createPageBridgeStructureResolver,
+} from "@pagebridge/sanity";
+export type { PageBridgePluginConfig } from "@pagebridge/sanity";
 
 // Components
-export { SearchPerformancePane, RefreshQueueTool } from '@pagebridge/sanity-plugin';
+export {
+  SearchPerformancePane,
+  RefreshQueueTool,
+} from "@pagebridge/sanity";
 
 // Schemas
 export {
@@ -205,8 +216,11 @@ export {
   gscRefreshTask,
   createGscSnapshot,
   createGscRefreshTask,
-} from '@pagebridge/sanity-plugin/schemas';
-export type { GscSnapshotOptions, GscRefreshTaskOptions } from '@pagebridge/sanity-plugin/schemas';
+} from "@pagebridge/sanity/schemas";
+export type {
+  GscSnapshotOptions,
+  GscRefreshTaskOptions,
+} from "@pagebridge/sanity/schemas";
 ```
 
 ## License

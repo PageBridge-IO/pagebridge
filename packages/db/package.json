@@ -1,9 +1,20 @@
 {
   "name": "@pagebridge/db",
+  "description": "Database layer for PageBridge — Drizzle ORM schema and PostgreSQL client for search analytics storage",
   "license": "MIT",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": false,
   "type": "module",
+  "keywords": [
+    "pagebridge",
+    "database",
+    "drizzle",
+    "postgresql",
+    "search-analytics",
+    "google-search-console",
+    "gsc",
+    "orm"
+  ],
   "files": [
     "dist",
     "drizzle"

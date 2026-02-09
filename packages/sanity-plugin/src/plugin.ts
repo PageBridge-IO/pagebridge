@@ -9,7 +9,7 @@ import { createGscSnapshot } from "./schemas/gscSnapshot";
 import { createGscRefreshTask } from "./schemas/gscRefreshTask";
 import type { ComponentType } from "react";
 
-export interface GscPluginConfig {
+export interface PageBridgePluginConfig {
   /**
    * Array of Sanity document type names that represent your content.
    * These will be available for linking in gscSnapshot and gscRefreshTask schemas.
@@ -73,7 +73,7 @@ export const createPageBridgeStructure = (S: StructureBuilder) =>
  * Creates a structure resolver that adds the Performance view to content types
  * Use this with structureTool's defaultDocumentNode option
  */
-export const createGscStructureResolver = (
+export const createPageBridgeStructureResolver = (
   contentTypes: string[] = [],
 ): DefaultDocumentNodeResolver => {
   return (S, { schemaType }) => {
@@ -94,7 +94,7 @@ export const createGscStructureResolver = (
   };
 };
 
-export const gscPlugin = definePlugin<GscPluginConfig | void>((config) => {
+export const pageBridgePlugin = definePlugin<PageBridgePluginConfig | void>((config) => {
   const contentTypes = config?.contentTypes ?? [];
 
   const gscSnapshot = createGscSnapshot({ contentTypes });

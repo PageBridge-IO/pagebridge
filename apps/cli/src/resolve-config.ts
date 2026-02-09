@@ -1,11 +1,18 @@
 /**
- * Resolves a config value from a CLI option first, then env var fallback.
+ * Resolves a config value from:
+ *  1. CLI option (highest priority)
+ *  2. PAGEBRIDGE_ prefixed env var (e.g. PAGEBRIDGE_DATABASE_URL)
+ *  3. Unprefixed env var fallback (e.g. DATABASE_URL)
  */
 export function resolve(
   optionValue: string | undefined,
   envVarName: string,
 ): string | undefined {
-  return optionValue ?? process.env[envVarName];
+  return (
+    optionValue ??
+    process.env[`PAGEBRIDGE_${envVarName}`] ??
+    process.env[envVarName]
+  );
 }
 
 interface ConfigEntry {
@@ -26,7 +33,9 @@ export function requireConfig(entries: ConfigEntry[]): void {
   console.error("Error: Missing required configuration.\n");
   for (const entry of missing) {
     console.error(`  ${entry.name}`);
-    console.error(`    ${entry.flag}  or  ${entry.envVar} env var\n`);
+    console.error(
+      `    ${entry.flag}  or  PAGEBRIDGE_${entry.envVar} / ${entry.envVar} env var\n`,
+    );
   }
   process.exit(1);
 }

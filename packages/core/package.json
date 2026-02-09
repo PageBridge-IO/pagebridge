@@ -1,9 +1,22 @@
 {
   "name": "@pagebridge/core",
-  "version": "0.0.1",
+  "version": "0.0.2",
+  "description": "Core engine for PageBridge — GSC sync, URL matching, content decay detection, and task generation",
   "license": "MIT",
   "private": false,
   "type": "module",
+  "keywords": [
+    "pagebridge",
+    "google-search-console",
+    "gsc",
+    "seo",
+    "content-decay",
+    "decay-detection",
+    "url-matching",
+    "search-analytics",
+    "sync-engine",
+    "sanity"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

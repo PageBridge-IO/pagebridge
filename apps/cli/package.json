@@ -1,9 +1,22 @@
 {
   "name": "@pagebridge/cli",
-  "version": "0.0.2",
+  "version": "0.1.0",
+  "description": "CLI for PageBridge — sync Google Search Console data, detect content decay, and generate refresh tasks",
   "private": false,
   "license": "MIT",
   "type": "module",
+  "keywords": [
+    "pagebridge",
+    "cli",
+    "google-search-console",
+    "gsc",
+    "seo",
+    "content-decay",
+    "sanity",
+    "search-analytics",
+    "content-refresh",
+    "decay-detection"
+  ],
   "bin": {
     "pagebridge": "./dist/index.js"
   },
