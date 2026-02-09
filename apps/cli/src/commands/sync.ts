@@ -56,24 +56,62 @@ export const syncCommand = new Command("sync")
     // Validate --quiet-period
     const quietPeriodDays = parseInt(options.quietPeriod as string);
     if (isNaN(quietPeriodDays)) {
-      log.error(`Invalid --quiet-period value: "${options.quietPeriod}". Must be a number.`);
+      log.error(
+        `Invalid --quiet-period value: "${options.quietPeriod}". Must be a number.`,
+      );
       process.exit(1);
     }
 
-    const googleServiceAccount = resolve(options.googleServiceAccount, "GOOGLE_SERVICE_ACCOUNT");
+    const googleServiceAccount = resolve(
+      options.googleServiceAccount,
+      "GOOGLE_SERVICE_ACCOUNT",
+    );
     const dbUrl = resolve(options.dbUrl, "DATABASE_URL");
-    const sanityProjectId = resolve(options.sanityProjectId, "SANITY_PROJECT_ID");
+    const sanityProjectId = resolve(
+      options.sanityProjectId,
+      "SANITY_PROJECT_ID",
+    );
     const sanityDataset = resolve(options.sanityDataset, "SANITY_DATASET");
     const sanityToken = resolve(options.sanityToken, "SANITY_TOKEN");
     const siteUrl = resolve(options.siteUrl, "SITE_URL");
 
     requireConfig([
-      { name: "GOOGLE_SERVICE_ACCOUNT", flag: "--google-service-account <json>", envVar: "GOOGLE_SERVICE_ACCOUNT", value: googleServiceAccount },
-      { name: "DATABASE_URL", flag: "--db-url <url>", envVar: "DATABASE_URL", value: dbUrl },
-      { name: "SANITY_PROJECT_ID", flag: "--sanity-project-id <id>", envVar: "SANITY_PROJECT_ID", value: sanityProjectId },
-      { name: "SANITY_DATASET", flag: "--sanity-dataset <name>", envVar: "SANITY_DATASET", value: sanityDataset },
-      { name: "SANITY_TOKEN", flag: "--sanity-token <token>", envVar: "SANITY_TOKEN", value: sanityToken },
-      { name: "SITE_URL", flag: "--site-url <url>", envVar: "SITE_URL", value: siteUrl },
+      {
+        name: "GOOGLE_SERVICE_ACCOUNT",
+        flag: "--google-service-account <json>",
+        envVar: "GOOGLE_SERVICE_ACCOUNT",
+        value: googleServiceAccount,
+      },
+      {
+        name: "DATABASE_URL",
+        flag: "--db-url <url>",
+        envVar: "DATABASE_URL",
+        value: dbUrl,
+      },
+      {
+        name: "SANITY_PROJECT_ID",
+        flag: "--sanity-project-id <id>",
+        envVar: "SANITY_PROJECT_ID",
+        value: sanityProjectId,
+      },
+      {
+        name: "SANITY_DATASET",
+        flag: "--sanity-dataset <name>",
+        envVar: "SANITY_DATASET",
+        value: sanityDataset,
+      },
+      {
+        name: "SANITY_TOKEN",
+        flag: "--sanity-token <token>",
+        envVar: "SANITY_TOKEN",
+        value: sanityToken,
+      },
+      {
+        name: "SITE_URL",
+        flag: "--site-url <url>",
+        envVar: "SITE_URL",
+        value: siteUrl,
+      },
     ]);
 
     // Run migrations if requested
@@ -127,7 +165,9 @@ export const syncCommand = new Command("sync")
       const sites = await gsc.listSites();
       timer.end("GSC connection check", t);
       if (!sites.includes(options.site as string)) {
-        log.warn(`Site "${options.site}" not found in GSC site list. It may be new or the service account may lack access.`);
+        log.warn(
+          `Site "${options.site}" not found in GSC site list. It may be new or the service account may lack access.`,
+        );
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -315,9 +355,7 @@ export const syncCommand = new Command("sync")
         log.info(`\nDiagnostics for: ${targetUrl}\n`);
         if (result) {
           log.info(`   Matched: ${result.sanityId ? "Yes" : "No"}`);
-          log.info(
-            `   Reason: ${getReasonDescription(result.unmatchReason)}`,
-          );
+          log.info(`   Reason: ${getReasonDescription(result.unmatchReason)}`);
           if (result.extractedSlug) {
             log.info(`   Extracted slug: "${result.extractedSlug}"`);
           }
@@ -325,9 +363,7 @@ export const syncCommand = new Command("sync")
             log.info(`   Matched to Sanity slug: "${result.matchedSlug}"`);
           }
           if (result.diagnostics) {
-            log.info(
-              `   Normalized URL: ${result.diagnostics.normalizedUrl}`,
-            );
+            log.info(`   Normalized URL: ${result.diagnostics.normalizedUrl}`);
             log.info(
               `   Path after prefix: ${result.diagnostics.pathAfterPrefix}`,
             );
@@ -408,7 +444,7 @@ export const syncCommand = new Command("sync")
       }
 
       timer.end("Total sync", syncStartTime);
-      log.info(`\nSync complete!`);
+      log.info(`Sync complete!`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       log.error(`Sync failed: ${message}`);
@@ -417,6 +453,9 @@ export const syncCommand = new Command("sync")
       await close();
       process.removeListener("SIGTERM", shutdown);
       process.removeListener("SIGINT", shutdown);
+      // Sanity client and GSC client keep HTTP connections alive with no close() API.
+      // Force exit so the process doesn't hang indefinitely.
+      process.exit(process.exitCode ?? 0);
     }
   });
 
