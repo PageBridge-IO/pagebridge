@@ -36,7 +36,8 @@
     "@pagebridge/core": "workspace:^",
     "@pagebridge/db": "workspace:^",
     "@sanity/client": "^7.14.1",
-    "commander": "^14.0.3"
+    "commander": "^14.0.3",
+    "dotenv": "^17.2.3"
   },
   "devDependencies": {
     "@pagebridge/eslint-config": "workspace:^",

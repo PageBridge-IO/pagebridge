@@ -242,6 +242,7 @@ export const syncCommand = new Command("sync")
         siteUrl: options.site,
         startDate: daysAgo(90),
         endDate: daysAgo(3),
+        onProgress: (msg) => log.info(msg),
       });
       timer.end("GSC data sync", t);
 
@@ -460,9 +461,13 @@ export const syncCommand = new Command("sync")
 
       if (!options.dryRun) {
         t = timer.start();
-        await syncEngine.writeSnapshots(siteId, matched, undefined, {
-          quickWins,
-        });
+        await syncEngine.writeSnapshots(
+          siteId,
+          matched,
+          undefined,
+          { quickWins },
+          (msg) => log.info(msg),
+        );
         timer.end("Write Sanity snapshots", t);
         log.info(`Updated Sanity snapshots`);
       }

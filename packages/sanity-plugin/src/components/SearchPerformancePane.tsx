@@ -214,78 +214,91 @@ function TopQueriesTable({ queries }: { queries: QueryData[] }) {
       <Text size={1} weight="semibold" muted style={{ marginBottom: 8 }}>
         Top Queries
       </Text>
-      <Stack space={1}>
-        <Flex
-          gap={2}
-          style={{
-            paddingBottom: 4,
-            borderBottom: "1px solid var(--card-border-color)",
-          }}
-        >
-          <Text size={0} muted weight="semibold" style={{ flex: 1 }}>
-            Query
-          </Text>
-          <Text
-            size={0}
-            muted
-            weight="semibold"
-            style={{ width: 60, textAlign: "right" }}
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          fontSize: "var(--font-size-1)",
+        }}
+      >
+        <thead>
+          <tr
+            style={{
+              borderBottom: "1px solid var(--card-border-color)",
+            }}
           >
-            Clicks
-          </Text>
-          <Text
-            size={0}
-            muted
-            weight="semibold"
-            style={{ width: 60, textAlign: "right" }}
-          >
-            Impr.
-          </Text>
-          <Text
-            size={0}
-            muted
-            weight="semibold"
-            style={{ width: 50, textAlign: "right" }}
-          >
-            CTR
-          </Text>
-          <Text
-            size={0}
-            muted
-            weight="semibold"
-            style={{ width: 50, textAlign: "right" }}
-          >
-            Pos.
-          </Text>
-        </Flex>
-        {queries.slice(0, 10).map((q, i) => (
-          <Flex key={i} gap={2} align="center" style={{ padding: "4px 0" }}>
-            <Text
-              size={1}
+            <th
               style={{
-                flex: 1,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
+                textAlign: "left",
+                padding: "4px 0",
+                fontWeight: 600,
+                fontSize: "var(--font-size-0)",
+                color: "var(--card-muted-fg-color)",
               }}
             >
-              {q.query}
-            </Text>
-            <Text size={1} style={{ width: 60, textAlign: "right" }}>
-              {q.clicks.toLocaleString()}
-            </Text>
-            <Text size={1} muted style={{ width: 60, textAlign: "right" }}>
-              {q.impressions.toLocaleString()}
-            </Text>
-            <Text size={1} muted style={{ width: 50, textAlign: "right" }}>
-              {q.ctr != null ? `${(q.ctr * 100).toFixed(1)}%` : "-"}
-            </Text>
-            <Text size={1} style={{ width: 50, textAlign: "right" }}>
-              <PositionText position={q.position} />
-            </Text>
-          </Flex>
-        ))}
-      </Stack>
+              Query
+            </th>
+            {["Clicks", "Impr.", "CTR", "Pos."].map((h) => (
+              <th
+                key={h}
+                style={{
+                  textAlign: "right",
+                  padding: "4px 0 4px 8px",
+                  fontWeight: 600,
+                  fontSize: "var(--font-size-0)",
+                  color: "var(--card-muted-fg-color)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {queries.slice(0, 10).map((q, i) => (
+            <tr key={i}>
+              <td
+                style={{
+                  padding: "6px 8px 6px 0",
+                  maxWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {q.query}
+              </td>
+              <td style={{ textAlign: "right", padding: "6px 0 6px 8px" }}>
+                {q.clicks.toLocaleString()}
+              </td>
+              <td
+                style={{
+                  textAlign: "right",
+                  padding: "6px 0 6px 8px",
+                  color: "var(--card-muted-fg-color)",
+                }}
+              >
+                {q.impressions.toLocaleString()}
+              </td>
+              <td
+                style={{
+                  textAlign: "right",
+                  padding: "6px 0 6px 8px",
+                  color: "var(--card-muted-fg-color)",
+                }}
+              >
+                {q.impressions > 0
+                  ? `${((q.clicks / q.impressions) * 100).toFixed(1)}%`
+                  : "-"}
+              </td>
+              <td style={{ textAlign: "right", padding: "6px 0 6px 8px" }}>
+                <PositionText position={q.position} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </Box>
   );
 }
