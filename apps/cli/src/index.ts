@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+import { config } from "dotenv";
+
+// Load .env.local first (higher priority), then .env
+config({ path: ".env.local" });
+config({ path: ".env" });
+
 import { program } from "commander";
 import { initCommand } from "./commands/init.js";
 import { doctorCommand } from "./commands/doctor.js";

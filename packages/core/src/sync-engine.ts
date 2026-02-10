@@ -5,15 +5,17 @@ import {
   syncLog,
   pageIndexStatus,
 } from "@pagebridge/db";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lte, sql } from "drizzle-orm";
 import type { SanityClient } from "@sanity/client";
 import type { GSCClient, IndexStatusResult } from "./gsc-client.js";
+import type { QuickWinQuery } from "./quick-win-analyzer.js";
 
 export interface SyncOptions {
   siteUrl: string;
   startDate?: Date;
   endDate?: Date;
   dimensions?: ("page" | "query" | "date")[];
+  onProgress?: (message: string) => void;
 }
 
 export interface SyncResult {
@@ -51,9 +53,11 @@ export class SyncEngine {
       siteUrl,
       startDate = daysAgo(90),
       endDate = daysAgo(3),
-      dimensions = ["page", "date"],
+      dimensions = ["page", "query", "date"],
+      onProgress,
     } = options;
 
+    const progress = onProgress ?? (() => {});
     const syncLogId = `${siteUrl}:${Date.now()}`;
 
     await this.db.insert(syncLog).values({
@@ -64,83 +68,130 @@ export class SyncEngine {
     });
 
     try {
-      const rows = await this.gsc.fetchSearchAnalytics({
-        siteUrl,
-        startDate,
-        endDate,
-        dimensions,
-      });
+      // Fetch page-level and query-level data in parallel
+      const fetchQuery = dimensions.includes("query");
+
+      progress("Fetching data from Google Search Console...");
+
+      const [pageRows, queryRows] = await Promise.all([
+        this.gsc.fetchSearchAnalytics({
+          siteUrl,
+          startDate,
+          endDate,
+          dimensions: ["page", "date"],
+        }),
+        fetchQuery
+          ? this.gsc.fetchSearchAnalytics({
+              siteUrl,
+              startDate,
+              endDate,
+              dimensions: ["page", "query", "date"],
+            })
+          : Promise.resolve([]),
+      ]);
+
+      progress(
+        `Fetched ${pageRows.length} page rows` +
+          (fetchQuery ? ` and ${queryRows.length} query rows` : "") +
+          ` from GSC`,
+      );
 
       const pages = new Set<string>();
+      for (const row of pageRows) pages.add(row.page);
+      for (const row of queryRows) pages.add(row.page);
 
-      for (const row of rows) {
-        pages.add(row.page);
+      const BATCH_SIZE = 500;
 
-        if (row.date) {
-          const id = `${siteUrl}:${row.page}:${row.date}`;
-          await this.db
-            .insert(searchAnalytics)
-            .values({
-              id,
-              siteId: siteUrl,
-              page: row.page,
-              date: row.date,
-              clicks: row.clicks,
-              impressions: row.impressions,
-              ctr: row.ctr,
-              position: row.position,
-            })
-            .onConflictDoUpdate({
-              target: searchAnalytics.id,
-              set: {
-                clicks: row.clicks,
-                impressions: row.impressions,
-                ctr: row.ctr,
-                position: row.position,
-                fetchedAt: new Date(),
-              },
-            });
-        }
+      // Write page-level data to search_analytics
+      const pageValues = pageRows
+        .filter((row) => row.date)
+        .map((row) => ({
+          id: `${siteUrl}:${row.page}:${row.date}`,
+          siteId: siteUrl,
+          page: row.page,
+          date: row.date!,
+          clicks: row.clicks,
+          impressions: row.impressions,
+          ctr: row.ctr,
+          position: row.position,
+        }));
 
-        if (row.query && row.date) {
-          const id = `${siteUrl}:${row.page}:${row.query}:${row.date}`;
-          await this.db
-            .insert(queryAnalytics)
-            .values({
-              id,
-              siteId: siteUrl,
-              page: row.page,
-              query: row.query,
-              date: row.date,
-              clicks: row.clicks,
-              impressions: row.impressions,
-              ctr: row.ctr,
-              position: row.position,
-            })
-            .onConflictDoUpdate({
-              target: queryAnalytics.id,
-              set: {
-                clicks: row.clicks,
-                impressions: row.impressions,
-                ctr: row.ctr,
-                position: row.position,
-              },
-            });
-        }
+      for (let i = 0; i < pageValues.length; i += BATCH_SIZE) {
+        const batch = pageValues.slice(i, i + BATCH_SIZE);
+        await this.db
+          .insert(searchAnalytics)
+          .values(batch)
+          .onConflictDoUpdate({
+            target: searchAnalytics.id,
+            set: {
+              clicks: sql`excluded.clicks`,
+              impressions: sql`excluded.impressions`,
+              ctr: sql`excluded.ctr`,
+              position: sql`excluded.position`,
+              fetchedAt: new Date(),
+            },
+          });
+        progress(
+          `Writing page data... ${Math.min(i + BATCH_SIZE, pageValues.length)}/${pageValues.length} rows`,
+        );
       }
+
+      if (pageValues.length > 0) {
+        progress(`Wrote ${pageValues.length} page rows to database`);
+      }
+
+      // Write query-level data to query_analytics
+      const queryValues = queryRows
+        .filter((row) => row.query && row.date)
+        .map((row) => ({
+          id: `${siteUrl}:${row.page}:${row.query}:${row.date}`,
+          siteId: siteUrl,
+          page: row.page,
+          query: row.query!,
+          date: row.date!,
+          clicks: row.clicks,
+          impressions: row.impressions,
+          ctr: row.ctr,
+          position: row.position,
+        }));
+
+      for (let i = 0; i < queryValues.length; i += BATCH_SIZE) {
+        const batch = queryValues.slice(i, i + BATCH_SIZE);
+        await this.db
+          .insert(queryAnalytics)
+          .values(batch)
+          .onConflictDoUpdate({
+            target: queryAnalytics.id,
+            set: {
+              clicks: sql`excluded.clicks`,
+              impressions: sql`excluded.impressions`,
+              ctr: sql`excluded.ctr`,
+              position: sql`excluded.position`,
+            },
+          });
+        progress(
+          `Writing query data... ${Math.min(i + BATCH_SIZE, queryValues.length)}/${queryValues.length} rows`,
+        );
+      }
+
+      if (queryValues.length > 0) {
+        progress(`Wrote ${queryValues.length} query rows to database`);
+      }
+
+      const totalRows = pageRows.length + queryRows.length;
 
       await this.db
         .update(syncLog)
         .set({
           status: "completed",
           completedAt: new Date(),
-          rowsProcessed: rows.length,
+          rowsProcessed: totalRows,
         })
         .where(eq(syncLog.id, syncLogId));
 
       return {
         pages: Array.from(pages),
-        rowsProcessed: rows.length,
+        rowsProcessed: totalRows,
         syncLogId,
       };
     } catch (error) {
@@ -161,7 +212,13 @@ export class SyncEngine {
     siteId: string,
     matches: { gscUrl: string; sanityId: string | undefined }[],
     siteUrl?: string,
+    insights?: {
+      quickWins?: Map<string, QuickWinQuery[]>;
+    },
+    onProgress?: (message: string) => void,
   ): Promise<void> {
+    const progress = onProgress ?? (() => {});
+
     // Get the siteUrl from Sanity if not provided
     let resolvedSiteUrl = siteUrl;
     if (!resolvedSiteUrl) {
@@ -175,53 +232,96 @@ export class SyncEngine {
       throw new Error(`Could not find siteUrl for site ID: ${siteId}`);
     }
 
+    const validMatches = matches.filter((m) => m.sanityId);
+
+    // Pre-fetch all existing snapshot IDs in one query
+    progress(`Checking existing snapshots for ${validMatches.length} pages...`);
+    const existingSnapshots = await this.sanity.fetch<
+      { _id: string; page: string; period: string }[]
+    >(
+      `*[_type == "gscSnapshot" && site._ref == $siteId]{ _id, page, period }`,
+      { siteId },
+    );
+
+    const snapshotIdMap = new Map<string, string>();
+    for (const snap of existingSnapshots) {
+      snapshotIdMap.set(`${snap.page}:${snap.period}`, snap._id);
+    }
+
     const periods = ["last7", "last28", "last90"] as const;
     const periodDays = { last7: 7, last28: 28, last90: 90 };
+
+    // Pre-fetch index status for all pages in parallel
+    const indexStatusMap = new Map<
+      string,
+      Awaited<ReturnType<typeof this.getIndexStatus>>
+    >();
+    await Promise.all(
+      validMatches.map(async (match) => {
+        const status = await this.getIndexStatus(
+          resolvedSiteUrl!,
+          match.gscUrl,
+        );
+        indexStatusMap.set(match.gscUrl, status);
+      }),
+    );
+
+    // Build all snapshot data, querying DB in parallel per match
+    progress(`Computing metrics for ${validMatches.length} pages × ${periods.length} periods...`);
+
+    const transaction = this.sanity.transaction();
+    let mutationCount = 0;
 
     for (const period of periods) {
       const startDate = daysAgo(periodDays[period]);
       const endDate = daysAgo(3);
 
-      for (const match of matches) {
-        if (!match.sanityId) continue;
+      // Fetch metrics and top queries in parallel for all matches in this period
+      const matchData = await Promise.all(
+        validMatches.map(async (match) => {
+          const [metrics, topQueries] = await Promise.all([
+            this.getAggregatedMetrics(
+              resolvedSiteUrl!,
+              match.gscUrl,
+              startDate,
+              endDate,
+            ),
+            this.getTopQueries(
+              resolvedSiteUrl!,
+              match.gscUrl,
+              startDate,
+              endDate,
+            ),
+          ]);
+          return { match, metrics, topQueries };
+        }),
+      );
 
-        const metrics = await this.getAggregatedMetrics(
-          resolvedSiteUrl,
-          match.gscUrl,
-          startDate,
-          endDate,
-        );
+      for (const { match, metrics, topQueries } of matchData) {
         if (!metrics) continue;
 
-        const topQueries = await this.getTopQueries(
-          resolvedSiteUrl,
-          match.gscUrl,
-          startDate,
-          endDate,
-        );
+        const indexStatusData = indexStatusMap.get(match.gscUrl);
 
-        // Get index status from database
-        const indexStatusData = await this.getIndexStatus(
-          resolvedSiteUrl,
-          match.gscUrl,
-        );
-
-        const existingSnapshot = await this.sanity.fetch(
-          `*[_type == "gscSnapshot" && site._ref == $siteId && page == $page && period == $period][0]._id`,
-          { siteId, page: match.gscUrl, period },
-        );
+        const quickWinQueries =
+          period === "last28"
+            ? (insights?.quickWins?.get(match.gscUrl) ?? [])
+            : [];
 
         const snapshotData = {
           _type: "gscSnapshot" as const,
           site: { _type: "reference" as const, _ref: siteId },
           page: match.gscUrl,
-          linkedDocument: { _type: "reference" as const, _ref: match.sanityId },
+          linkedDocument: {
+            _type: "reference" as const,
+            _ref: match.sanityId,
+          },
           period,
           clicks: metrics.clicks,
           impressions: metrics.impressions,
           ctr: metrics.ctr,
           position: metrics.position,
           topQueries,
+          ...(quickWinQueries.length > 0 ? { quickWinQueries } : {}),
           fetchedAt: new Date().toISOString(),
           indexStatus: indexStatusData
             ? {
@@ -235,13 +335,18 @@ export class SyncEngine {
             : undefined,
         };
 
-        if (existingSnapshot) {
-          await this.sanity.patch(existingSnapshot).set(snapshotData).commit();
+        const existingId = snapshotIdMap.get(`${match.gscUrl}:${period}`);
+        if (existingId) {
+          transaction.patch(existingId, (p) => p.set(snapshotData));
         } else {
-          await this.sanity.create(snapshotData);
+          transaction.create(snapshotData);
         }
+        mutationCount++;
       }
     }
+
+    progress(`Committing ${mutationCount} snapshot mutations...`);
+    await transaction.commit();
   }
 
   async syncIndexStatus(
