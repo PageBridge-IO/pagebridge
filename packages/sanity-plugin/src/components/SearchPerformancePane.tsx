@@ -1,12 +1,37 @@
 import { useEffect, useState } from "react";
 import { useClient } from "sanity";
-import { Card, Stack, Text, Badge, Flex, Box, Spinner, Tooltip } from "@sanity/ui";
-import { ArrowUpIcon, ArrowDownIcon, ArrowRightIcon, CheckmarkCircleIcon, CloseCircleIcon, WarningOutlineIcon } from "@sanity/icons";
+import {
+  Card,
+  Stack,
+  Text,
+  Badge,
+  Flex,
+  Box,
+  Spinner,
+  Tooltip,
+} from "@sanity/ui";
+import {
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ArrowRightIcon,
+  CheckmarkCircleIcon,
+  CloseCircleIcon,
+  WarningOutlineIcon,
+  BoltIcon,
+} from "@sanity/icons";
 
 interface IndexStatus {
   verdict: "indexed" | "not_indexed" | "excluded";
   coverageState: string | null;
   lastCrawlTime: string | null;
+}
+
+interface QueryData {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr?: number;
+  position: number;
 }
 
 interface PerformanceData {
@@ -15,7 +40,8 @@ interface PerformanceData {
   ctr: number;
   position: number;
   positionDelta: number;
-  topQueries: { query: string; clicks: number; position: number }[];
+  topQueries: QueryData[];
+  quickWinQueries: QueryData[];
   lastUpdated: string;
   indexStatus?: IndexStatus;
 }
@@ -40,6 +66,7 @@ export function SearchPerformancePane({
           ctr,
           position,
           topQueries,
+          quickWinQueries,
           fetchedAt,
           indexStatus
         }`,
@@ -59,6 +86,8 @@ export function SearchPerformancePane({
           positionDelta: previousSnapshot
             ? snapshot.position - previousSnapshot.position
             : 0,
+          topQueries: snapshot.topQueries ?? [],
+          quickWinQueries: snapshot.quickWinQueries ?? [],
           lastUpdated: snapshot.fetchedAt,
           indexStatus: snapshot.indexStatus,
         });
@@ -112,24 +141,12 @@ export function SearchPerformancePane({
           />
         </Flex>
 
-        {data.topQueries?.length > 0 && (
-          <Box>
-            <Text size={1} weight="semibold" muted style={{ marginBottom: 8 }}>
-              Top Queries
-            </Text>
-            <Stack space={2}>
-              {data.topQueries.slice(0, 5).map((q, i) => (
-                <Flex key={i} justify="space-between" align="center">
-                  <Text size={1} style={{ flex: 1 }}>
-                    {q.query}
-                  </Text>
-                  <Text size={1} muted>
-                    {q.clicks} clicks · pos {q.position.toFixed(1)}
-                  </Text>
-                </Flex>
-              ))}
-            </Stack>
-          </Box>
+        {data.quickWinQueries.length > 0 && (
+          <QuickWinsSection queries={data.quickWinQueries} />
+        )}
+
+        {data.topQueries.length > 0 && (
+          <TopQueriesTable queries={data.topQueries} />
         )}
 
         <Text size={0} muted>
@@ -139,6 +156,151 @@ export function SearchPerformancePane({
     </Card>
   );
 }
+
+// --- Quick Wins Section ---
+
+function QuickWinsSection({ queries }: { queries: QueryData[] }) {
+  return (
+    <Card padding={3} radius={2} tone="positive" border>
+      <Stack space={3}>
+        <Flex align="center" gap={2}>
+          <BoltIcon />
+          <Text size={1} weight="semibold">
+            Quick Wins — Page 1 Opportunities
+          </Text>
+        </Flex>
+        <Text size={0} muted>
+          These queries rank at positions 8-20 with strong impressions. Small
+          content improvements could push them to page 1.
+        </Text>
+        <Stack space={2}>
+          {queries.map((q, i) => (
+            <Card key={i} padding={2} radius={2} shadow={1}>
+              <Flex justify="space-between" align="center" gap={2}>
+                <Box style={{ flex: 1, minWidth: 0 }}>
+                  <Text
+                    size={1}
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {q.query}
+                  </Text>
+                </Box>
+                <Flex align="center" gap={2} style={{ flexShrink: 0 }}>
+                  <Badge tone="primary" fontSize={0}>
+                    pos {q.position.toFixed(1)}
+                  </Badge>
+                  <Text size={0} muted>
+                    {q.impressions.toLocaleString()} imp
+                  </Text>
+                </Flex>
+              </Flex>
+            </Card>
+          ))}
+        </Stack>
+      </Stack>
+    </Card>
+  );
+}
+
+// --- Top Queries Table ---
+
+function TopQueriesTable({ queries }: { queries: QueryData[] }) {
+  return (
+    <Box>
+      <Text size={1} weight="semibold" muted style={{ marginBottom: 8 }}>
+        Top Queries
+      </Text>
+      <Stack space={1}>
+        <Flex
+          gap={2}
+          style={{
+            paddingBottom: 4,
+            borderBottom: "1px solid var(--card-border-color)",
+          }}
+        >
+          <Text size={0} muted weight="semibold" style={{ flex: 1 }}>
+            Query
+          </Text>
+          <Text
+            size={0}
+            muted
+            weight="semibold"
+            style={{ width: 60, textAlign: "right" }}
+          >
+            Clicks
+          </Text>
+          <Text
+            size={0}
+            muted
+            weight="semibold"
+            style={{ width: 60, textAlign: "right" }}
+          >
+            Impr.
+          </Text>
+          <Text
+            size={0}
+            muted
+            weight="semibold"
+            style={{ width: 50, textAlign: "right" }}
+          >
+            CTR
+          </Text>
+          <Text
+            size={0}
+            muted
+            weight="semibold"
+            style={{ width: 50, textAlign: "right" }}
+          >
+            Pos.
+          </Text>
+        </Flex>
+        {queries.slice(0, 10).map((q, i) => (
+          <Flex key={i} gap={2} align="center" style={{ padding: "4px 0" }}>
+            <Text
+              size={1}
+              style={{
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {q.query}
+            </Text>
+            <Text size={1} style={{ width: 60, textAlign: "right" }}>
+              {q.clicks.toLocaleString()}
+            </Text>
+            <Text size={1} muted style={{ width: 60, textAlign: "right" }}>
+              {q.impressions.toLocaleString()}
+            </Text>
+            <Text size={1} muted style={{ width: 50, textAlign: "right" }}>
+              {q.ctr != null ? `${(q.ctr * 100).toFixed(1)}%` : "-"}
+            </Text>
+            <Text size={1} style={{ width: 50, textAlign: "right" }}>
+              <PositionText position={q.position} />
+            </Text>
+          </Flex>
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
+function PositionText({ position }: { position: number }) {
+  const tone =
+    position <= 3 ? "positive" : position <= 10 ? "caution" : "critical";
+  return (
+    <Badge tone={tone} fontSize={0}>
+      {position.toFixed(1)}
+    </Badge>
+  );
+}
+
+// --- Metric Card ---
 
 interface MetricCardProps {
   label: string;
@@ -184,6 +346,8 @@ function MetricCard({ label, value, trend, invertTrend }: MetricCardProps) {
   );
 }
 
+// --- Index Status Badge ---
+
 interface IndexStatusBadgeProps {
   status: IndexStatus;
 }
@@ -218,7 +382,8 @@ function IndexStatusBadge({ status }: IndexStatusBadgeProps) {
             <Text size={1}>{tooltipContent}</Text>
             {status.lastCrawlTime && (
               <Text size={0} muted>
-                Last crawled: {new Date(status.lastCrawlTime).toLocaleDateString()}
+                Last crawled:{" "}
+                {new Date(status.lastCrawlTime).toLocaleDateString()}
               </Text>
             )}
           </Stack>

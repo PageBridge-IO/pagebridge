@@ -80,6 +80,25 @@ export const createGscSnapshot = (options: GscSnapshotOptions = {}) => {
         ],
       }),
       defineField({
+        name: "quickWinQueries",
+        title: "Quick Win Queries",
+        type: "array",
+        description:
+          "Queries at position 8-20 with high impressions — page 1 opportunities",
+        of: [
+          {
+            type: "object",
+            fields: [
+              defineField({ name: "query", type: "string" }),
+              defineField({ name: "clicks", type: "number" }),
+              defineField({ name: "impressions", type: "number" }),
+              defineField({ name: "ctr", type: "number" }),
+              defineField({ name: "position", type: "number" }),
+            ],
+          },
+        ],
+      }),
+      defineField({
         name: "fetchedAt",
         title: "Fetched At",
         type: "datetime",

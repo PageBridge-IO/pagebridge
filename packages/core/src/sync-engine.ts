@@ -8,6 +8,7 @@ import {
 import { and, eq, gte, lte } from "drizzle-orm";
 import type { SanityClient } from "@sanity/client";
 import type { GSCClient, IndexStatusResult } from "./gsc-client.js";
+import type { QuickWinQuery } from "./quick-win-analyzer.js";
 
 export interface SyncOptions {
   siteUrl: string;
@@ -51,7 +52,7 @@ export class SyncEngine {
       siteUrl,
       startDate = daysAgo(90),
       endDate = daysAgo(3),
-      dimensions = ["page", "date"],
+      dimensions = ["page", "query", "date"],
     } = options;
 
     const syncLogId = `${siteUrl}:${Date.now()}`;
@@ -161,6 +162,9 @@ export class SyncEngine {
     siteId: string,
     matches: { gscUrl: string; sanityId: string | undefined }[],
     siteUrl?: string,
+    insights?: {
+      quickWins?: Map<string, QuickWinQuery[]>;
+    },
   ): Promise<void> {
     // Get the siteUrl from Sanity if not provided
     let resolvedSiteUrl = siteUrl;
@@ -211,6 +215,12 @@ export class SyncEngine {
           { siteId, page: match.gscUrl, period },
         );
 
+        // Attach quick-win queries to the last28 snapshot
+        const quickWinQueries =
+          period === "last28"
+            ? (insights?.quickWins?.get(match.gscUrl) ?? [])
+            : [];
+
         const snapshotData = {
           _type: "gscSnapshot" as const,
           site: { _type: "reference" as const, _ref: siteId },
@@ -222,6 +232,7 @@ export class SyncEngine {
           ctr: metrics.ctr,
           position: metrics.position,
           topQueries,
+          ...(quickWinQueries.length > 0 ? { quickWinQueries } : {}),
           fetchedAt: new Date().toISOString(),
           indexStatus: indexStatusData
             ? {

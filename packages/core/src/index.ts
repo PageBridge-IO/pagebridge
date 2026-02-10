@@ -29,3 +29,8 @@ export {
   type TaskGeneratorOptions,
   type QueryContext,
 } from "./task-generator.js";
+export {
+  QuickWinAnalyzer,
+  type QuickWinQuery,
+  type QuickWinConfig,
+} from "./quick-win-analyzer.js";

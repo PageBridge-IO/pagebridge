@@ -6,6 +6,8 @@ import {
   DecayDetector,
   URLMatcher,
   TaskGenerator,
+  QuickWinAnalyzer,
+  type QuickWinQuery,
   type MatchResult,
   type UnmatchReason,
 } from "@pagebridge/core";
@@ -41,6 +43,10 @@ export const syncCommand = new Command("sync")
   .option("--quiet-period <days>", "Ignore pages published within N days", "45")
   .option("--diagnose", "Show detailed diagnostics for unmatched URLs")
   .option("--diagnose-url <url>", "Diagnose why a specific URL is not matching")
+  .option(
+    "--skip-insights",
+    "Skip insight analysis (quick wins, etc.) for faster sync",
+  )
   .option("--debug", "Enable debug logging with timing information")
   .option("--migrate", "Run database migrations before syncing")
   .option("--google-service-account <json>", "Google service account JSON")
@@ -436,9 +442,27 @@ export const syncCommand = new Command("sync")
         }
       }
 
+      // Insight analysis (quick wins, etc.)
+      let quickWins: Map<string, QuickWinQuery[]> | undefined;
+      if (!options.dryRun && !options.skipInsights) {
+        t = timer.start();
+        const quickWinAnalyzer = new QuickWinAnalyzer(db);
+        quickWins = await quickWinAnalyzer.analyze(options.site);
+        const totalQuickWins = Array.from(quickWins.values()).reduce(
+          (sum, arr) => sum + arr.length,
+          0,
+        );
+        timer.end("Insight analysis", t);
+        log.info(
+          `Found ${totalQuickWins} quick-win queries across ${quickWins.size} pages`,
+        );
+      }
+
       if (!options.dryRun) {
         t = timer.start();
-        await syncEngine.writeSnapshots(siteId, matched);
+        await syncEngine.writeSnapshots(siteId, matched, undefined, {
+          quickWins,
+        });
         timer.end("Write Sanity snapshots", t);
         log.info(`Updated Sanity snapshots`);
       }
