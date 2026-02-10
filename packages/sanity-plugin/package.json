@@ -1,6 +1,6 @@
 {
   "name": "@pagebridge/sanity",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Sanity Studio plugin for PageBridge — performance pane, decay alerts, and refresh queue powered by Google Search Console data",
   "license": "MIT",
   "private": false,
@@ -44,7 +44,7 @@
     "lint": "eslint ."
   },
   "peerDependencies": {
-    "sanity": "^5.0.0",
+    "sanity": "^4.0.0",
     "@sanity/ui": "^3.0.0",
     "@sanity/icons": "^3.0.0",
     "react": "^18 || ^19",
