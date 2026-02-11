@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useClient } from "sanity";
+import { SANITY_API_VERSION } from "../constants";
 import {
   Card,
   Stack,
@@ -93,7 +94,7 @@ interface SearchPerformancePaneProps {
 export function SearchPerformancePane({
   documentId,
 }: SearchPerformancePaneProps) {
-  const client = useClient({ apiVersion: "2024-01-01" });
+  const client = useClient({ apiVersion: SANITY_API_VERSION });
   const [data, setData] = useState<PerformanceData | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
@@ -169,7 +170,7 @@ export function SearchPerformancePane({
       <Stack space={4}>
         <Flex justify="space-between" align="center">
           <Text weight="semibold" size={2}>
-            Search Performance (Last 28 Days)
+            Search Performance last 28 days (GSC lag ~2–3 days)
           </Text>
           {data.indexStatus && <IndexStatusBadge status={data.indexStatus} />}
         </Flex>

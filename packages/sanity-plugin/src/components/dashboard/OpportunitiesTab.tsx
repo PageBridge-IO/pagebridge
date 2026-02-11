@@ -5,7 +5,7 @@ interface QuickWinEntry {
   page: string;
   documentId?: string;
   documentTitle?: string;
-  clicks: number;
+  queryCount: number;
   impressions: number;
   position: number;
 }
@@ -39,7 +39,7 @@ export function OpportunitiesTab({
               </Text>
             </Flex>
             <Text size={0} muted>
-              Queries at positions 8-20 with high impressions across all pages
+              Pages with queries at positions 8-20 — small content tweaks could push these to page 1
             </Text>
             <Box>
               <table
@@ -66,7 +66,7 @@ export function OpportunitiesTab({
                     >
                       Page
                     </th>
-                    {["Impr.", "Pos."].map((h) => (
+                    {["Queries", "Impr.", "Avg Pos."].map((h) => (
                       <th
                         key={h}
                         style={{
@@ -95,6 +95,15 @@ export function OpportunitiesTab({
                         }}
                       >
                         {entry.documentTitle || entry.page}
+                      </td>
+                      <td
+                        style={{
+                          textAlign: "right",
+                          padding: "6px 0 6px 8px",
+                          color: "var(--card-muted-fg-color)",
+                        }}
+                      >
+                        {entry.queryCount}
                       </td>
                       <td
                         style={{

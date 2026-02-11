@@ -1,6 +1,7 @@
 import type { DrizzleClient } from "@pagebridge/db";
 import { searchAnalytics } from "@pagebridge/db";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { daysAgo, formatDate } from "./utils/date-utils.js";
 
 /** Industry-average CTR by position (positions 1-10) */
 export const EXPECTED_CTR_BY_POSITION: Record<number, number> = {
@@ -186,14 +187,4 @@ export class CtrAnomalyAnalyzer {
 
     return alerts;
   }
-}
-
-function daysAgo(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date;
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0]!;
 }

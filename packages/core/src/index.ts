@@ -54,6 +54,7 @@ export {
 export {
   CannibalizationAnalyzer,
   type CannibalizationGroup,
+  type CannibalizationConfig,
 } from "./cannibalization-analyzer.js";
 export {
   SiteInsightAnalyzer,
@@ -64,3 +65,4 @@ export {
   type NewKeywordOpportunity,
 } from "./site-insight-analyzer.js";
 export { InsightWriter } from "./insight-writer.js";
+export { daysAgo, formatDate, daysSince } from "./utils/date-utils.js";

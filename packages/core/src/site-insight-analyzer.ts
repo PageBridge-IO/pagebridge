@@ -1,6 +1,7 @@
 import type { DrizzleClient } from "@pagebridge/db";
 import { searchAnalytics, queryAnalytics } from "@pagebridge/db";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { daysAgo, formatDate } from "./utils/date-utils.js";
 
 export interface TopPerformer {
   page: string;
@@ -155,10 +156,34 @@ export class SiteInsightAnalyzer {
       .groupBy(searchAnalytics.page);
 
     const activePages = new Set(activeResults.map((r) => r.page));
+    const orphanPageUrls = allPages.filter((page) => !activePages.has(page));
 
-    return allPages
-      .filter((page) => !activePages.has(page))
-      .map((page) => ({ page }));
+    if (orphanPageUrls.length === 0) return [];
+
+    // Query the last impression date for each orphan page
+    const lastImpressionResults = await this.db
+      .select({
+        page: searchAnalytics.page,
+        lastDate: sql<string>`max(${searchAnalytics.date})`,
+      })
+      .from(searchAnalytics)
+      .where(
+        and(
+          eq(searchAnalytics.siteId, siteId),
+          sql`${searchAnalytics.page} IN (${sql.join(orphanPageUrls.map((u) => sql`${u}`), sql`, `)})`,
+        ),
+      )
+      .groupBy(searchAnalytics.page);
+
+    const lastImpressionMap = new Map<string, string>();
+    for (const row of lastImpressionResults) {
+      if (row.lastDate) lastImpressionMap.set(row.page, row.lastDate);
+    }
+
+    return orphanPageUrls.map((page) => ({
+      page,
+      lastImpression: lastImpressionMap.get(page),
+    }));
   }
 
   private async getNewKeywordOpportunities(
@@ -219,14 +244,4 @@ export class SiteInsightAnalyzer {
       .sort((a, b) => b.impressions - a.impressions)
       .slice(0, 50);
   }
-}
-
-function daysAgo(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date;
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0]!;
 }

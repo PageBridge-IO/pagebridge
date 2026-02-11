@@ -93,6 +93,26 @@ export const createGscSiteInsight = (options: GscSiteInsightOptions = {}) => {
         ],
       }),
       defineField({
+        name: "quickWinPages",
+        title: "Quick Win Pages",
+        type: "array",
+        description:
+          "Pages with queries at positions 8-20 that have high impressions (page 1 opportunities)",
+        of: [
+          {
+            type: "object",
+            fields: [
+              defineField({ name: "page", type: "string" }),
+              defineField({ name: "documentId", type: "string" }),
+              defineField({ name: "documentTitle", type: "string" }),
+              defineField({ name: "queryCount", type: "number" }),
+              defineField({ name: "totalImpressions", type: "number" }),
+              defineField({ name: "avgPosition", type: "number" }),
+            ],
+          },
+        ],
+      }),
+      defineField({
         name: "cannibalizationGroups",
         title: "Cannibalization Groups",
         type: "array",

@@ -1,4 +1,5 @@
 import { useClient } from "sanity";
+import { SANITY_API_VERSION } from "../../constants";
 import {
   Card,
   Stack,
@@ -52,7 +53,7 @@ const reasonLabels: Record<string, string> = {
 };
 
 export function RefreshQueueTab() {
-  const client = useClient({ apiVersion: "2024-01-01" });
+  const client = useClient({ apiVersion: SANITY_API_VERSION });
   const [tasks, setTasks] = useState<RefreshTask[]>([]);
   const [filter, setFilter] = useState<FilterType>("open");
 

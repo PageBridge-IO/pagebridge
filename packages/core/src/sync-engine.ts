@@ -11,6 +11,8 @@ import type { GSCClient, IndexStatusResult } from "./gsc-client.js";
 import type { QuickWinQuery } from "./quick-win-analyzer.js";
 import type { CtrAnomaly } from "./ctr-anomaly-analyzer.js";
 import { CtrAnomalyAnalyzer } from "./ctr-anomaly-analyzer.js";
+import { daysAgo, formatDate } from "./utils/date-utils.js";
+import { sanityKey } from "./utils/sanity-key.js";
 
 export interface PublishingImpact {
   lastEditedAt: string;
@@ -375,6 +377,27 @@ export class SyncEngine {
             )
           : [];
 
+        // Add _key to all array items for Sanity
+        const keyedQuickWins = quickWinQueries.map((q) => ({
+          _key: sanityKey(`qw:${q.query}`),
+          ...q,
+        }));
+
+        const keyedAlerts = alerts.map((a) => ({
+          _key: sanityKey(`al:${a.type}:${a.severity}`),
+          ...a,
+        }));
+
+        const keyedDailyClicks = dailyClicks?.map((d) => ({
+          _key: sanityKey(`dc:${d.date}`),
+          ...d,
+        }));
+
+        const keyedCannibalization = cannibalizationTargets?.map((t) => ({
+          _key: sanityKey(`ct:${t.competingPage}`),
+          ...t,
+        }));
+
         const snapshotData = {
           _type: "gscSnapshot" as const,
           site: { _type: "reference" as const, _ref: siteId },
@@ -389,13 +412,17 @@ export class SyncEngine {
           ctr: metrics.ctr,
           position: metrics.position,
           topQueries,
-          ...(quickWinQueries.length > 0 ? { quickWinQueries } : {}),
+          ...(keyedQuickWins.length > 0
+            ? { quickWinQueries: keyedQuickWins }
+            : {}),
           ...(ctrAnomaly ? { ctrAnomaly } : {}),
-          ...(alerts.length > 0 ? { alerts } : {}),
-          ...(dailyClicks && dailyClicks.length > 0 ? { dailyClicks } : {}),
+          ...(keyedAlerts.length > 0 ? { alerts: keyedAlerts } : {}),
+          ...(keyedDailyClicks && keyedDailyClicks.length > 0
+            ? { dailyClicks: keyedDailyClicks }
+            : {}),
           ...(publishingImpact ? { publishingImpact } : {}),
-          ...(cannibalizationTargets && cannibalizationTargets.length > 0
-            ? { cannibalizationTargets }
+          ...(keyedCannibalization && keyedCannibalization.length > 0
+            ? { cannibalizationTargets: keyedCannibalization }
             : {}),
           fetchedAt: new Date().toISOString(),
           indexStatus: indexStatusData
@@ -625,6 +652,7 @@ export class SyncEngine {
 
     return Array.from(queryMap.entries())
       .map(([query, data]) => ({
+        _key: sanityKey(`tq:${query}`),
         query,
         clicks: data.clicks,
         impressions: data.impressions,
@@ -634,16 +662,6 @@ export class SyncEngine {
       .sort((a, b) => b.clicks - a.clicks)
       .slice(0, 10);
   }
-}
-
-function daysAgo(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date;
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0]!;
 }
 
 function delay(ms: number): Promise<void> {

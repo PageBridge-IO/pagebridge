@@ -2,6 +2,7 @@ import type { DrizzleClient } from "@pagebridge/db";
 import { searchAnalytics } from "@pagebridge/db";
 import { and, eq, gte, lte } from "drizzle-orm";
 import type { DailyMetricPoint } from "./sync-engine.js";
+import { daysAgo, formatDate } from "./utils/date-utils.js";
 
 export class DailyMetricsCollector {
   constructor(private db: DrizzleClient) {}
@@ -55,14 +56,4 @@ export class DailyMetricsCollector {
 
     return map;
   }
-}
-
-function daysAgo(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date;
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0]!;
 }

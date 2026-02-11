@@ -1,5 +1,6 @@
 import { useClient } from "sanity";
 import { useEffect, useState } from "react";
+import { SANITY_API_VERSION } from "../constants";
 import {
   Card,
   Stack,
@@ -30,6 +31,15 @@ interface PageEntry {
   position?: number;
 }
 
+interface QuickWinPageEntry {
+  page: string;
+  documentId?: string;
+  documentTitle?: string;
+  queryCount: number;
+  totalImpressions: number;
+  avgPosition: number;
+}
+
 interface KeywordEntry {
   query: string;
   page: string;
@@ -47,6 +57,7 @@ interface SiteInsightData {
   topPerformers: PageEntry[];
   zeroClickPages: PageEntry[];
   orphanPages: PageEntry[];
+  quickWinPages: QuickWinPageEntry[];
   newKeywordOpportunities: KeywordEntry[];
   cannibalizationGroups: CannibalizationGroup[];
   lastComputedAt: string;
@@ -60,7 +71,7 @@ const tabs: { id: TabId; label: string }[] = [
 ];
 
 export function InsightsDashboardTool() {
-  const client = useClient({ apiVersion: "2024-01-01" });
+  const client = useClient({ apiVersion: SANITY_API_VERSION });
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string>("");
@@ -93,6 +104,7 @@ export function InsightsDashboardTool() {
           topPerformers,
           zeroClickPages,
           orphanPages,
+          quickWinPages,
           newKeywordOpportunities,
           cannibalizationGroups,
           lastComputedAt
@@ -100,7 +112,16 @@ export function InsightsDashboardTool() {
         { siteId: selectedSiteId },
       )
       .then((result) => {
-        setInsightData(result);
+        // Apply safe defaults for partially-created documents
+        setInsightData(result ? {
+          topPerformers: result.topPerformers ?? [],
+          zeroClickPages: result.zeroClickPages ?? [],
+          orphanPages: result.orphanPages ?? [],
+          quickWinPages: result.quickWinPages ?? [],
+          newKeywordOpportunities: result.newKeywordOpportunities ?? [],
+          cannibalizationGroups: result.cannibalizationGroups ?? [],
+          lastComputedAt: result.lastComputedAt ?? "",
+        } : null);
         setLoading(false);
       });
   }, [selectedSiteId, client]);
@@ -214,16 +235,14 @@ function TabContent({
     case "opportunities":
       return (
         <OpportunitiesTab
-          quickWins={data?.topPerformers
-            ?.filter((p) => p.position != null && p.position >= 8 && p.position <= 20)
-            .map((p) => ({
-              page: p.page,
-              documentId: p.documentId,
-              documentTitle: p.documentTitle,
-              clicks: p.clicks ?? 0,
-              impressions: p.impressions ?? 0,
-              position: p.position ?? 0,
-            })) ?? []}
+          quickWins={(data?.quickWinPages ?? []).map((p) => ({
+            page: p.page,
+            documentId: p.documentId,
+            documentTitle: p.documentTitle,
+            queryCount: p.queryCount,
+            impressions: p.totalImpressions,
+            position: p.avgPosition,
+          }))}
           newKeywords={data?.newKeywordOpportunities ?? []}
         />
       );

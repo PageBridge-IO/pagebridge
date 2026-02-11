@@ -2,6 +2,7 @@ import type { DrizzleClient } from "@pagebridge/db";
 import { queryAnalytics } from "@pagebridge/db";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import type { CannibalizationTarget } from "./sync-engine.js";
+import { daysAgo, formatDate } from "./utils/date-utils.js";
 
 export interface CannibalizationGroup {
   query: string;
@@ -13,16 +14,38 @@ export interface CannibalizationGroup {
   }[];
 }
 
+export interface CannibalizationConfig {
+  /** Minimum impressions per query to consider (default: 100) */
+  minImpressions: number;
+  /** Lookback window in days (default: 28) */
+  windowDays: number;
+  /** Days of data lag to skip (default: 3) */
+  lagDays: number;
+}
+
+const defaultConfig: CannibalizationConfig = {
+  minImpressions: 100,
+  windowDays: 28,
+  lagDays: 3,
+};
+
 export class CannibalizationAnalyzer {
-  constructor(private db: DrizzleClient) {}
+  private config: CannibalizationConfig;
+
+  constructor(db: DrizzleClient, config?: Partial<CannibalizationConfig>) {
+    this.db = db;
+    this.config = { ...defaultConfig, ...config };
+  }
+
+  private db: DrizzleClient;
 
   /**
    * Finds queries where 2+ pages rank, grouped by query.
    * Returns site-wide cannibalization groups.
    */
   async analyzeSiteWide(siteId: string): Promise<CannibalizationGroup[]> {
-    const startDate = daysAgo(28);
-    const endDate = daysAgo(3);
+    const startDate = daysAgo(this.config.windowDays);
+    const endDate = daysAgo(this.config.lagDays);
 
     // Get all query+page combos with significant impressions
     const results = await this.db
@@ -51,7 +74,7 @@ export class CannibalizationAnalyzer {
 
     for (const row of results) {
       const impressions = Number(row.totalImpressions) || 0;
-      if (impressions < 100) continue;
+      if (impressions < this.config.minImpressions) continue;
 
       const existing = queryMap.get(row.query) ?? [];
       existing.push({
@@ -136,14 +159,4 @@ export class CannibalizationAnalyzer {
 
     return result;
   }
-}
-
-function daysAgo(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date;
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0]!;
 }

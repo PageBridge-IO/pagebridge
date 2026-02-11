@@ -2,6 +2,7 @@ import type { DrizzleClient } from "@pagebridge/db";
 import { searchAnalytics } from "@pagebridge/db";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import type { PublishingImpact } from "./sync-engine.js";
+import { formatDate } from "./utils/date-utils.js";
 
 export interface EditDateInfo {
   url: string;
@@ -14,6 +15,12 @@ export class PublishingImpactAnalyzer {
   /**
    * Compares 14-day window before vs. 14-day window after the last content edit.
    * Requires at least 7 days since edit to have meaningful "after" data.
+   *
+   * Note: `editDates` typically comes from Sanity's `_updatedAt` field, which
+   * includes ALL document updates (not just content edits). This means schema
+   * migrations, metadata changes, or SEO field updates will also trigger a
+   * before/after comparison. For more accurate results, pass a dedicated
+   * `contentLastEditedAt` field if available.
    */
   async analyze(
     siteId: string,
@@ -106,8 +113,4 @@ export class PublishingImpactAnalyzer {
       position,
     };
   }
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0]!;
 }

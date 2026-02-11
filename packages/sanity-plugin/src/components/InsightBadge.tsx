@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useClient } from "sanity";
 import type { DocumentBadgeComponent } from "sanity";
+import { SANITY_API_VERSION } from "../constants";
 
 interface Alert {
   type: string;
@@ -25,7 +26,7 @@ const severityColors: Record<string, "danger" | "warning" | "primary"> = {
 };
 
 export const InsightBadge: DocumentBadgeComponent = (props) => {
-  const client = useClient({ apiVersion: "2024-01-01" });
+  const client = useClient({ apiVersion: SANITY_API_VERSION });
   const [topAlert, setTopAlert] = useState<Alert | null>(null);
   const documentId = props.published?._id as string | undefined;
 
