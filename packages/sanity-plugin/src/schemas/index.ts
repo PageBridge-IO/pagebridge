@@ -9,3 +9,8 @@ export {
   createGscRefreshTask,
   type GscRefreshTaskOptions,
 } from "./gscRefreshTask";
+export {
+  gscSiteInsight,
+  createGscSiteInsight,
+  type GscSiteInsightOptions,
+} from "./gscSiteInsight";

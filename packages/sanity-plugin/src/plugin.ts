@@ -7,6 +7,7 @@ import { ChartUpwardIcon, EarthGlobeIcon } from "@sanity/icons";
 import { gscSite } from "./schemas/gscSite";
 import { createGscSnapshot } from "./schemas/gscSnapshot";
 import { createGscRefreshTask } from "./schemas/gscRefreshTask";
+import { createGscSiteInsight } from "./schemas/gscSiteInsight";
 import type { ComponentType } from "react";
 
 export interface PageBridgePluginConfig {
@@ -23,6 +24,7 @@ export const PAGEBRIDGE_TYPES = [
   "gscSite",
   "gscSnapshot",
   "gscRefreshTask",
+  "gscSiteInsight",
 ] as const;
 
 /**
@@ -66,6 +68,12 @@ export const createPageBridgeStructure = (S: StructureBuilder) =>
             .title("Refresh Tasks")
             .schemaType("gscRefreshTask")
             .child(S.documentTypeList("gscRefreshTask").title("Refresh Tasks")),
+          S.listItem()
+            .title("Site Insights")
+            .schemaType("gscSiteInsight")
+            .child(
+              S.documentTypeList("gscSiteInsight").title("Site Insights"),
+            ),
         ]),
     );
 
@@ -99,21 +107,33 @@ export const pageBridgePlugin = definePlugin<PageBridgePluginConfig | void>((con
 
   const gscSnapshot = createGscSnapshot({ contentTypes });
   const gscRefreshTask = createGscRefreshTask({ contentTypes });
+  const gscSiteInsight = createGscSiteInsight({ contentTypes });
 
-  // Lazy import to avoid loading React component during schema extraction
-  const RefreshQueueTool: ComponentType<any> =
-    require("./components/RefreshQueueTool").RefreshQueueTool;
+  // Lazy imports to avoid loading React components during schema extraction
+  const InsightsDashboardTool: ComponentType<any> =
+    require("./components/InsightsDashboardTool").InsightsDashboardTool;
+
+  const { InsightBadge } = require("./components/InsightBadge");
 
   return {
     name: "pagebridge-sanity",
     schema: {
-      types: [gscSite, gscSnapshot, gscRefreshTask],
+      types: [gscSite, gscSnapshot, gscRefreshTask, gscSiteInsight],
+    },
+    document: {
+      badges: (prev, context) => {
+        if (contentTypes.length === 0) return prev;
+        if (contentTypes.includes(context.schemaType)) {
+          return [...prev, InsightBadge];
+        }
+        return prev;
+      },
     },
     tools: [
       {
-        name: "gsc-refresh-queue",
-        title: "Refresh Queue",
-        component: RefreshQueueTool,
+        name: "gsc-insights",
+        title: "SEO Insights",
+        component: InsightsDashboardTool,
       },
     ],
   };

@@ -9,6 +9,44 @@ import { and, eq, gte, lte, sql } from "drizzle-orm";
 import type { SanityClient } from "@sanity/client";
 import type { GSCClient, IndexStatusResult } from "./gsc-client.js";
 import type { QuickWinQuery } from "./quick-win-analyzer.js";
+import type { CtrAnomaly } from "./ctr-anomaly-analyzer.js";
+import { CtrAnomalyAnalyzer } from "./ctr-anomaly-analyzer.js";
+
+export interface PublishingImpact {
+  lastEditedAt: string;
+  daysSinceEdit: number;
+  positionBefore: number;
+  positionAfter: number;
+  positionDelta: number;
+  clicksBefore: number;
+  clicksAfter: number;
+  impressionsBefore: number;
+  impressionsAfter: number;
+  ctrBefore: number;
+  ctrAfter: number;
+}
+
+export interface CannibalizationTarget {
+  competingPage: string;
+  competingDocumentId: string;
+  sharedQueries: string[];
+}
+
+export interface DailyMetricPoint {
+  date: string;
+  clicks: number;
+  impressions: number;
+  position: number;
+}
+
+export interface SnapshotInsights {
+  quickWins?: Map<string, QuickWinQuery[]>;
+  ctrAnomalies?: Map<string, CtrAnomaly>;
+  dailyMetrics?: Map<string, DailyMetricPoint[]>;
+  publishingImpact?: Map<string, PublishingImpact>;
+  cannibalizationTargets?: Map<string, CannibalizationTarget[]>;
+  decayPages?: Set<string>;
+}
 
 export interface SyncOptions {
   siteUrl: string;
@@ -212,9 +250,7 @@ export class SyncEngine {
     siteId: string,
     matches: { gscUrl: string; sanityId: string | undefined }[],
     siteUrl?: string,
-    insights?: {
-      quickWins?: Map<string, QuickWinQuery[]>;
-    },
+    insights?: SnapshotInsights,
     onProgress?: (message: string) => void,
   ): Promise<void> {
     const progress = onProgress ?? (() => {});
@@ -302,10 +338,42 @@ export class SyncEngine {
 
         const indexStatusData = indexStatusMap.get(match.gscUrl);
 
-        const quickWinQueries =
-          period === "last28"
-            ? (insights?.quickWins?.get(match.gscUrl) ?? [])
-            : [];
+        const isLast28 = period === "last28";
+
+        const quickWinQueries = isLast28
+          ? (insights?.quickWins?.get(match.gscUrl) ?? [])
+          : [];
+
+        const ctrAnomaly = isLast28
+          ? insights?.ctrAnomalies?.get(match.gscUrl)
+          : undefined;
+
+        const dailyClicks = isLast28
+          ? insights?.dailyMetrics?.get(match.gscUrl)
+          : undefined;
+
+        const publishingImpact = isLast28
+          ? insights?.publishingImpact?.get(match.gscUrl)
+          : undefined;
+
+        const cannibalizationTargets = isLast28
+          ? insights?.cannibalizationTargets?.get(match.gscUrl)
+          : undefined;
+
+        // Build alerts from all insight sources
+        const hasQuickWins = quickWinQueries.length > 0;
+        const hasDecay = insights?.decayPages?.has(match.gscUrl) ?? false;
+        const hasCannibalization =
+          (cannibalizationTargets?.length ?? 0) > 0;
+
+        const alerts = isLast28
+          ? CtrAnomalyAnalyzer.buildAlerts(
+              ctrAnomaly,
+              hasQuickWins,
+              hasDecay,
+              hasCannibalization,
+            )
+          : [];
 
         const snapshotData = {
           _type: "gscSnapshot" as const,
@@ -322,6 +390,13 @@ export class SyncEngine {
           position: metrics.position,
           topQueries,
           ...(quickWinQueries.length > 0 ? { quickWinQueries } : {}),
+          ...(ctrAnomaly ? { ctrAnomaly } : {}),
+          ...(alerts.length > 0 ? { alerts } : {}),
+          ...(dailyClicks && dailyClicks.length > 0 ? { dailyClicks } : {}),
+          ...(publishingImpact ? { publishingImpact } : {}),
+          ...(cannibalizationTargets && cannibalizationTargets.length > 0
+            ? { cannibalizationTargets }
+            : {}),
           fetchedAt: new Date().toISOString(),
           indexStatus: indexStatusData
             ? {
