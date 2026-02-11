@@ -1,6 +1,6 @@
 {
   "name": "@pagebridge/cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "CLI for PageBridge — sync Google Search Console data, detect content decay, and generate refresh tasks",
   "private": false,
   "license": "MIT",
