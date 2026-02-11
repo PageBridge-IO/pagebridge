@@ -11,8 +11,11 @@ export {
   gscSite,
   gscSnapshot,
   gscRefreshTask,
+  gscSiteInsight,
   createGscSnapshot,
   createGscRefreshTask,
+  createGscSiteInsight,
   type GscSnapshotOptions,
   type GscRefreshTaskOptions,
+  type GscSiteInsightOptions,
 } from "./schemas";

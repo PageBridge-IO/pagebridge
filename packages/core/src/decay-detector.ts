@@ -1,6 +1,7 @@
 import type { DrizzleClient } from "@pagebridge/db";
 import { searchAnalytics } from "@pagebridge/db";
 import { and, avg, gte, lte, sql, eq } from "drizzle-orm";
+import { daysAgo, daysSince, formatDate } from "./utils/date-utils.js";
 
 export interface DecayRule {
   type: "position_decay" | "low_ctr" | "impressions_drop";
@@ -235,20 +236,4 @@ export class DecayDetector {
 
     return Array.from(byPage.values());
   }
-}
-
-function daysAgo(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date;
-}
-
-function daysSince(date: Date): number {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0]!;
 }

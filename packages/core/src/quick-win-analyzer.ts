@@ -1,6 +1,7 @@
 import type { DrizzleClient } from "@pagebridge/db";
 import { queryAnalytics } from "@pagebridge/db";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
+import { daysAgo, formatDate } from "./utils/date-utils.js";
 
 export interface QuickWinQuery {
   query: string;
@@ -103,14 +104,4 @@ export class QuickWinAnalyzer {
 
     return quickWins;
   }
-}
-
-function daysAgo(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date;
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0]!;
 }

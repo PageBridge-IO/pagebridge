@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useClient } from "sanity";
+import { SANITY_API_VERSION } from "../constants";
 import {
   Card,
   Stack,
@@ -19,6 +20,9 @@ import {
   WarningOutlineIcon,
   BoltIcon,
 } from "@sanity/icons";
+import { InsightAlerts } from "./InsightAlerts";
+import { SparklineChart } from "./SparklineChart";
+import { PublishingImpactSection } from "./PublishingImpactSection";
 
 interface IndexStatus {
   verdict: "indexed" | "not_indexed" | "excluded";
@@ -34,6 +38,39 @@ interface QueryData {
   position: number;
 }
 
+interface AlertData {
+  type: string;
+  severity: "low" | "medium" | "high";
+  message: string;
+}
+
+interface DailyMetricPoint {
+  date: string;
+  clicks: number;
+  impressions: number;
+  position: number;
+}
+
+interface PublishingImpactData {
+  lastEditedAt: string;
+  daysSinceEdit: number;
+  positionBefore: number;
+  positionAfter: number;
+  positionDelta: number;
+  clicksBefore: number;
+  clicksAfter: number;
+  impressionsBefore: number;
+  impressionsAfter: number;
+  ctrBefore: number;
+  ctrAfter: number;
+}
+
+interface CannibalizationTarget {
+  competingPage: string;
+  competingDocumentId: string;
+  sharedQueries: string[];
+}
+
 interface PerformanceData {
   clicks: number;
   impressions: number;
@@ -42,6 +79,10 @@ interface PerformanceData {
   positionDelta: number;
   topQueries: QueryData[];
   quickWinQueries: QueryData[];
+  alerts: AlertData[];
+  dailyClicks: DailyMetricPoint[];
+  publishingImpact?: PublishingImpactData;
+  cannibalizationTargets: CannibalizationTarget[];
   lastUpdated: string;
   indexStatus?: IndexStatus;
 }
@@ -53,7 +94,7 @@ interface SearchPerformancePaneProps {
 export function SearchPerformancePane({
   documentId,
 }: SearchPerformancePaneProps) {
-  const client = useClient({ apiVersion: "2024-01-01" });
+  const client = useClient({ apiVersion: SANITY_API_VERSION });
   const [data, setData] = useState<PerformanceData | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
@@ -67,6 +108,10 @@ export function SearchPerformancePane({
           position,
           topQueries,
           quickWinQueries,
+          alerts,
+          dailyClicks,
+          publishingImpact,
+          cannibalizationTargets,
           fetchedAt,
           indexStatus
         }`,
@@ -88,6 +133,10 @@ export function SearchPerformancePane({
             : 0,
           topQueries: snapshot.topQueries ?? [],
           quickWinQueries: snapshot.quickWinQueries ?? [],
+          alerts: snapshot.alerts ?? [],
+          dailyClicks: snapshot.dailyClicks ?? [],
+          publishingImpact: snapshot.publishingImpact ?? undefined,
+          cannibalizationTargets: snapshot.cannibalizationTargets ?? [],
           lastUpdated: snapshot.fetchedAt,
           indexStatus: snapshot.indexStatus,
         });
@@ -121,10 +170,12 @@ export function SearchPerformancePane({
       <Stack space={4}>
         <Flex justify="space-between" align="center">
           <Text weight="semibold" size={2}>
-            Search Performance (Last 28 Days)
+            Search Performance last 28 days (GSC lag ~2–3 days)
           </Text>
           {data.indexStatus && <IndexStatusBadge status={data.indexStatus} />}
         </Flex>
+
+        {data.alerts.length > 0 && <InsightAlerts alerts={data.alerts} />}
 
         <Flex gap={3} wrap="wrap">
           <MetricCard label="Clicks" value={data.clicks.toLocaleString()} />
@@ -141,8 +192,37 @@ export function SearchPerformancePane({
           />
         </Flex>
 
+        {data.dailyClicks.length > 0 && (
+          <Flex gap={3} wrap="wrap">
+            <SparklineChart
+              data={data.dailyClicks.map((d) => ({
+                date: d.date,
+                value: d.clicks,
+              }))}
+              label="Clicks"
+              color="var(--card-focus-ring-color)"
+            />
+            <SparklineChart
+              data={data.dailyClicks.map((d) => ({
+                date: d.date,
+                value: d.impressions,
+              }))}
+              label="Impressions"
+              color="var(--card-badge-caution-bg-color)"
+            />
+          </Flex>
+        )}
+
+        {data.publishingImpact && (
+          <PublishingImpactSection impact={data.publishingImpact} />
+        )}
+
         {data.quickWinQueries.length > 0 && (
           <QuickWinsSection queries={data.quickWinQueries} />
+        )}
+
+        {data.cannibalizationTargets.length > 0 && (
+          <CannibalizationNotice targets={data.cannibalizationTargets} />
         )}
 
         {data.topQueries.length > 0 && (
@@ -310,6 +390,55 @@ function PositionText({ position }: { position: number }) {
     <Badge tone={tone} fontSize={0}>
       {position.toFixed(1)}
     </Badge>
+  );
+}
+
+// --- Cannibalization Notice ---
+
+function CannibalizationNotice({
+  targets,
+}: {
+  targets: CannibalizationTarget[];
+}) {
+  return (
+    <Card padding={3} radius={2} tone="caution" border>
+      <Stack space={3}>
+        <Flex align="center" gap={2}>
+          <WarningOutlineIcon />
+          <Text size={1} weight="semibold">
+            Cannibalization Warning
+          </Text>
+        </Flex>
+        <Text size={0} muted>
+          {targets.length} other page{targets.length > 1 ? "s" : ""} competing
+          for the same queries.
+        </Text>
+        <Stack space={2}>
+          {targets.slice(0, 5).map((t, i) => (
+            <Card key={i} padding={2} radius={2} shadow={1}>
+              <Stack space={1}>
+                <Text
+                  size={1}
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {t.competingPage}
+                </Text>
+                <Text size={0} muted>
+                  Shared queries: {t.sharedQueries.slice(0, 3).join(", ")}
+                  {t.sharedQueries.length > 3
+                    ? ` +${t.sharedQueries.length - 3} more`
+                    : ""}
+                </Text>
+              </Stack>
+            </Card>
+          ))}
+        </Stack>
+      </Stack>
+    </Card>
   );
 }
 

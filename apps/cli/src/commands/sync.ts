@@ -7,20 +7,22 @@ import {
   URLMatcher,
   TaskGenerator,
   QuickWinAnalyzer,
-  type QuickWinQuery,
+  CtrAnomalyAnalyzer,
+  DailyMetricsCollector,
+  PublishingImpactAnalyzer,
+  CannibalizationAnalyzer,
+  SiteInsightAnalyzer,
+  InsightWriter,
+  daysAgo,
+  type SnapshotInsights,
   type MatchResult,
   type UnmatchReason,
+  type DecaySignal,
 } from "@pagebridge/core";
 import { createDb, sql, unmatchDiagnostics } from "@pagebridge/db";
 import { resolve, requireConfig } from "../resolve-config.js";
 import { log } from "../logger.js";
 import { migrateIfRequested } from "../migrate.js";
-
-function daysAgo(days: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date;
-}
 
 function createTimer(debug: boolean) {
   return {
@@ -405,11 +407,13 @@ export const syncCommand = new Command("sync")
         );
       }
 
+      // Decay detection (runs regardless, used for both tasks and alerts)
+      let decaySignals: DecaySignal[] = [];
       if (!options.skipTasks) {
         t = timer.start();
         const publishedDates = await getPublishedDates(sanity, matched);
         const detector = new DecayDetector(db);
-        const signals = await detector.detectDecay(
+        decaySignals = await detector.detectDecay(
           options.site,
           publishedDates,
           {
@@ -419,11 +423,11 @@ export const syncCommand = new Command("sync")
         );
         timer.end("Decay detection", t);
 
-        log.info(`Detected ${signals.length} decay signals`);
+        log.info(`Detected ${decaySignals.length} decay signals`);
 
         if (options.dryRun) {
           log.info("\nWould create the following tasks:");
-          signals.forEach((s) => {
+          decaySignals.forEach((s) => {
             log.info(`   [${s.severity.toUpperCase()}] ${s.page}`);
             log.info(`      Reason: ${s.reason}`);
             log.info(
@@ -435,7 +439,7 @@ export const syncCommand = new Command("sync")
           const taskGenerator = new TaskGenerator(sanity);
           const created = await taskGenerator.createTasks(
             siteId,
-            signals,
+            decaySignals,
             matches,
           );
           timer.end("Task generation", t);
@@ -443,20 +447,137 @@ export const syncCommand = new Command("sync")
         }
       }
 
-      // Insight analysis (quick wins, etc.)
-      let quickWins: Map<string, QuickWinQuery[]> | undefined;
+      // Insight analysis (quick wins, CTR anomalies, daily metrics, publishing impact, cannibalization)
+      const insights: SnapshotInsights = {};
       if (!options.dryRun && !options.skipInsights) {
         t = timer.start();
-        const quickWinAnalyzer = new QuickWinAnalyzer(db);
-        quickWins = await quickWinAnalyzer.analyze(options.site);
-        const totalQuickWins = Array.from(quickWins.values()).reduce(
-          (sum, arr) => sum + arr.length,
-          0,
-        );
+
+        // Quick wins
+        try {
+          const quickWinAnalyzer = new QuickWinAnalyzer(db);
+          insights.quickWins = await quickWinAnalyzer.analyze(options.site);
+          const totalQuickWins = Array.from(insights.quickWins.values()).reduce(
+            (sum: number, arr) => sum + (arr as unknown[]).length,
+            0 as number,
+          );
+          log.info(
+            `Found ${totalQuickWins} quick-win queries across ${insights.quickWins.size} pages`,
+          );
+        } catch (error) {
+          log.warn(`Quick win analysis failed: ${error instanceof Error ? error.message : error}`);
+          insights.quickWins = new Map();
+        }
+
+        // CTR anomalies
+        try {
+          const ctrAnalyzer = new CtrAnomalyAnalyzer(db);
+          insights.ctrAnomalies = await ctrAnalyzer.analyze(options.site);
+          log.info(`Found ${insights.ctrAnomalies.size} CTR anomalies`);
+        } catch (error) {
+          log.warn(`CTR anomaly analysis failed: ${error instanceof Error ? error.message : error}`);
+          insights.ctrAnomalies = new Map();
+        }
+
+        // Daily metrics for sparklines
+        try {
+          const dailyCollector = new DailyMetricsCollector(db);
+          insights.dailyMetrics = await dailyCollector.collect(options.site);
+          log.info(`Collected daily metrics for ${insights.dailyMetrics.size} pages`);
+        } catch (error) {
+          log.warn(`Daily metrics collection failed: ${error instanceof Error ? error.message : error}`);
+          insights.dailyMetrics = new Map();
+        }
+
+        // Publishing impact
+        try {
+          const editDates = await getDocumentDates(sanity, matched);
+          const impactAnalyzer = new PublishingImpactAnalyzer(db);
+          insights.publishingImpact = await impactAnalyzer.analyze(
+            options.site,
+            editDates,
+          );
+          log.info(
+            `Computed publishing impact for ${insights.publishingImpact.size} pages`,
+          );
+        } catch (error) {
+          log.warn(`Publishing impact analysis failed: ${error instanceof Error ? error.message : error}`);
+          insights.publishingImpact = new Map();
+        }
+
+        // Cannibalization (per-page targets for snapshots)
+        const cannibalizationAnalyzer = new CannibalizationAnalyzer(db);
+        try {
+          const cannibalizationResults =
+            await cannibalizationAnalyzer.analyzeForPages(options.site, matched);
+          insights.cannibalizationTargets = cannibalizationResults;
+          const totalCannibalized = Array.from(
+            cannibalizationResults.values(),
+          ).filter((targets) => (targets as unknown[]).length > 0).length;
+          log.info(
+            `Found cannibalization on ${totalCannibalized} pages`,
+          );
+        } catch (error) {
+          log.warn(`Cannibalization analysis failed: ${error instanceof Error ? error.message : error}`);
+          insights.cannibalizationTargets = new Map();
+        }
+
+        // Track decay pages for alert generation
+        if (decaySignals.length > 0) {
+          insights.decayPages = new Set(decaySignals.map((s) => s.page));
+        }
+
+        // Site-wide insights (top performers, zero-click, orphans, new keywords)
+        try {
+          const siteInsightAnalyzer = new SiteInsightAnalyzer(db);
+          const siteInsightData = await siteInsightAnalyzer.analyze(
+            options.site,
+            pages,
+          );
+
+          // Site-wide cannibalization groups for the dashboard
+          const cannibalizationGroups =
+            await cannibalizationAnalyzer.analyzeSiteWide(options.site);
+
+          // Build match lookup for document titles
+          const matchLookup = new Map<string, { sanityId: string; title?: string }>();
+          const docIds = matched.map((m) => m.sanityId).filter(Boolean);
+          if (docIds.length > 0) {
+            const docs = await sanity.fetch<{ _id: string; title?: string }[]>(
+              `*[_id in $ids]{ _id, title }`,
+              { ids: docIds },
+            );
+            for (const doc of docs) {
+              const match = matched.find((m) => m.sanityId === doc._id);
+              if (match) {
+                matchLookup.set(match.gscUrl, {
+                  sanityId: doc._id,
+                  title: doc.title,
+                });
+              }
+            }
+          }
+
+          // Write site-wide insights to Sanity
+          const insightWriter = new InsightWriter(sanity);
+          await insightWriter.write(
+            siteId,
+            siteInsightData,
+            cannibalizationGroups,
+            matchLookup,
+            insights.quickWins,
+          );
+          log.info(
+            `Wrote site insights: ${siteInsightData.topPerformers.length} top performers, ` +
+              `${siteInsightData.zeroClickPages.length} zero-click, ` +
+              `${siteInsightData.orphanPages.length} orphan, ` +
+              `${siteInsightData.newKeywordOpportunities.length} new keywords, ` +
+              `${cannibalizationGroups.length} cannibalization groups`,
+          );
+        } catch (error) {
+          log.warn(`Site insight analysis failed: ${error instanceof Error ? error.message : error}`);
+        }
+
         timer.end("Insight analysis", t);
-        log.info(
-          `Found ${totalQuickWins} quick-win queries across ${quickWins.size} pages`,
-        );
       }
 
       if (!options.dryRun) {
@@ -465,7 +586,7 @@ export const syncCommand = new Command("sync")
           siteId,
           matched,
           undefined,
-          { quickWins },
+          insights,
           (msg) => log.info(msg),
         );
         timer.end("Write Sanity snapshots", t);
@@ -503,6 +624,33 @@ async function getPublishedDates(
     if (match) {
       const dateStr = doc.publishedAt ?? doc._createdAt;
       map.set(match.gscUrl, new Date(dateStr));
+    }
+  }
+  return map;
+}
+
+/**
+ * Fetches _updatedAt dates for matched documents.
+ * Used by PublishingImpactAnalyzer to compare before/after edit metrics.
+ *
+ * Limitation: _updatedAt includes ALL document updates (schema changes,
+ * metadata edits, etc.), not just content edits. For more accurate results,
+ * add a dedicated `contentLastEditedAt` field to your content documents.
+ */
+async function getDocumentDates(
+  sanity: ReturnType<typeof createSanityClient>,
+  matches: MatchResult[],
+): Promise<Map<string, Date>> {
+  const ids = matches.map((m) => m.sanityId).filter(Boolean);
+  const docs = await sanity.fetch<
+    { _id: string; _updatedAt: string }[]
+  >(`*[_id in $ids]{ _id, _updatedAt }`, { ids });
+
+  const map = new Map<string, Date>();
+  for (const doc of docs) {
+    const match = matches.find((m) => m.sanityId === doc._id);
+    if (match) {
+      map.set(match.gscUrl, new Date(doc._updatedAt));
     }
   }
   return map;

@@ -99,6 +99,112 @@ export const createGscSnapshot = (options: GscSnapshotOptions = {}) => {
         ],
       }),
       defineField({
+        name: "ctrAnomaly",
+        title: "CTR Anomaly",
+        type: "object",
+        description: "Detected when actual CTR is significantly below expected for position",
+        fields: [
+          defineField({ name: "detected", type: "boolean" }),
+          defineField({ name: "actualCtr", type: "number", title: "Actual CTR" }),
+          defineField({ name: "expectedCtr", type: "number", title: "Expected CTR" }),
+          defineField({ name: "positionBucket", type: "number", title: "Position Bucket" }),
+          defineField({
+            name: "severity",
+            type: "string",
+            options: { list: ["low", "medium", "high"] },
+          }),
+          defineField({ name: "message", type: "string" }),
+        ],
+      }),
+      defineField({
+        name: "alerts",
+        title: "Insight Alerts",
+        type: "array",
+        description: "Aggregated insight alerts for badge queries and notifications",
+        of: [
+          {
+            type: "object",
+            fields: [
+              defineField({
+                name: "type",
+                type: "string",
+                options: {
+                  list: [
+                    "ctr_anomaly",
+                    "quick_win_available",
+                    "position_decay",
+                    "stale_content",
+                    "cannibalization",
+                  ],
+                },
+              }),
+              defineField({
+                name: "severity",
+                type: "string",
+                options: { list: ["low", "medium", "high"] },
+              }),
+              defineField({ name: "message", type: "string" }),
+            ],
+          },
+        ],
+      }),
+      defineField({
+        name: "dailyClicks",
+        title: "Daily Metrics",
+        type: "array",
+        description: "28-day daily data points for sparkline charts",
+        of: [
+          {
+            type: "object",
+            fields: [
+              defineField({ name: "date", type: "string" }),
+              defineField({ name: "clicks", type: "number" }),
+              defineField({ name: "impressions", type: "number" }),
+              defineField({ name: "position", type: "number" }),
+            ],
+          },
+        ],
+      }),
+      defineField({
+        name: "publishingImpact",
+        title: "Publishing Impact",
+        type: "object",
+        description: "Before/after metrics comparison around the last content edit",
+        fields: [
+          defineField({ name: "lastEditedAt", type: "datetime" }),
+          defineField({ name: "daysSinceEdit", type: "number" }),
+          defineField({ name: "positionBefore", type: "number" }),
+          defineField({ name: "positionAfter", type: "number" }),
+          defineField({ name: "positionDelta", type: "number" }),
+          defineField({ name: "clicksBefore", type: "number" }),
+          defineField({ name: "clicksAfter", type: "number" }),
+          defineField({ name: "impressionsBefore", type: "number" }),
+          defineField({ name: "impressionsAfter", type: "number" }),
+          defineField({ name: "ctrBefore", type: "number" }),
+          defineField({ name: "ctrAfter", type: "number" }),
+        ],
+      }),
+      defineField({
+        name: "cannibalizationTargets",
+        title: "Cannibalization Targets",
+        type: "array",
+        description: "Other pages competing for the same queries",
+        of: [
+          {
+            type: "object",
+            fields: [
+              defineField({ name: "competingPage", type: "string" }),
+              defineField({ name: "competingDocumentId", type: "string" }),
+              defineField({
+                name: "sharedQueries",
+                type: "array",
+                of: [{ type: "string" }],
+              }),
+            ],
+          },
+        ],
+      }),
+      defineField({
         name: "fetchedAt",
         title: "Fetched At",
         type: "datetime",
