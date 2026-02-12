@@ -18,6 +18,7 @@ import {
   type MatchResult,
   type UnmatchReason,
   type DecaySignal,
+  type URLMatcherConfig,
 } from "@pagebridge/core";
 import { createDb, sql, unmatchDiagnostics } from "@pagebridge/db";
 import { resolve, requireConfig } from "../resolve-config.js";
@@ -193,12 +194,19 @@ export const syncCommand = new Command("sync")
     t = timer.start();
     let siteDoc = await sanity.fetch<{
       _id: string;
+      urlConfigs?: Array<{
+        contentType: string;
+        pathPrefix?: string;
+        slugField?: string;
+      }>;
+      // Deprecated fields for backward compatibility
       pathPrefix?: string;
       contentTypes?: string[];
       slugField?: string;
     } | null>(
       `*[_type == "gscSite" && siteUrl == $siteUrl][0]{
         _id,
+        urlConfigs,
         pathPrefix,
         contentTypes,
         slugField
@@ -212,30 +220,58 @@ export const syncCommand = new Command("sync")
         _type: "gscSite",
         siteUrl: options.site,
         enabled: true,
-        contentTypes: ["post", "page"],
-        slugField: "slug",
+        urlConfigs: [
+          { contentType: "post", slugField: "slug" },
+          { contentType: "page", slugField: "slug" },
+        ],
       });
     }
     timer.end("Fetch gscSite document", t);
 
     const siteId = siteDoc._id;
 
-    // Use configuration from gscSite document
-    const contentTypes = siteDoc.contentTypes ?? ["post", "page"];
-    const slugField = siteDoc.slugField ?? "slug";
-    const pathPrefix = siteDoc.pathPrefix ?? undefined;
+    // Normalize configuration: migrate from old format if needed
+    let urlConfigs: Array<{
+      contentType: string;
+      pathPrefix?: string;
+      slugField: string;
+    }> = [];
+
+    if (siteDoc.urlConfigs) {
+      urlConfigs = siteDoc.urlConfigs.map((config) => ({
+        contentType: config.contentType,
+        pathPrefix: config.pathPrefix,
+        slugField: config.slugField ?? "slug",
+      }));
+    } else if (siteDoc.contentTypes) {
+      log.warn(
+        `[DEPRECATED] Using old configuration format (contentTypes, slugField, pathPrefix). ` +
+          `Please update your gscSite document to use 'urlConfigs' for more flexible URL path handling. ` +
+          `See https://pagebridge.io/docs/migration for details.`,
+      );
+      urlConfigs = siteDoc.contentTypes.map((contentType: string) => ({
+        contentType,
+        slugField: siteDoc.slugField ?? "slug",
+        pathPrefix: siteDoc.pathPrefix,
+      }));
+    } else {
+      urlConfigs = [
+        { contentType: "post", slugField: "slug" },
+        { contentType: "page", slugField: "slug" },
+      ];
+    }
 
     log.info(`Configuration:`);
-    log.info(`   Content types: ${contentTypes.join(", ")}`);
-    log.info(`   Slug field: ${slugField}`);
-    log.info(`   Path prefix: ${pathPrefix ?? "(none)"}`);
+    for (const config of urlConfigs) {
+      log.info(
+        `   ${config.contentType}: ${config.slugField} at ${config.pathPrefix ?? "(root)"}`,
+      );
+    }
 
     const syncEngine = new SyncEngine({ gsc, db, sanity });
     const matcher = new URLMatcher(sanity, {
-      contentTypes,
-      slugField,
+      urlConfigs,
       baseUrl: siteUrl!,
-      pathPrefix,
     });
 
     try {

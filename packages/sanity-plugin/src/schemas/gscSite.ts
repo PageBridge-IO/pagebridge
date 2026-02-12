@@ -26,26 +26,64 @@ export const gscSite = defineType({
       initialValue: "en",
     }),
     defineField({
+      name: "urlConfigs",
+      title: "URL Configurations",
+      type: "array",
+      of: [
+        {
+          type: "object",
+          fields: [
+            defineField({
+              name: "contentType",
+              title: "Content Type",
+              type: "string",
+              description: "The Sanity document type (e.g., post, page, article)",
+              validation: (Rule) => Rule.required(),
+            }),
+            defineField({
+              name: "pathPrefix",
+              title: "URL Path Prefix",
+              type: "string",
+              description:
+                'The URL path for this content type. E.g., "/blog" for /blog/article-slug, or leave empty for root-level URLs like /about-us',
+            }),
+            defineField({
+              name: "slugField",
+              title: "Slug Field Name",
+              type: "string",
+              initialValue: "slug",
+              description: "The field in your document containing the URL slug",
+            }),
+          ],
+        },
+      ],
+      description:
+        "Configure how each content type maps to URLs on your site. Each content type can have its own path prefix and slug field.",
+    }),
+    defineField({
       name: "pathPrefix",
-      title: "Path Prefix",
+      title: "Path Prefix (Deprecated)",
       type: "string",
-      description: 'If your blog lives at /blog, enter "/blog"',
+      description:
+        "⚠️ DEPRECATED: Use 'URL Configurations' above instead. This field is kept for backward compatibility only. If both are present, URL Configurations takes precedence.",
+      hidden: false, // Show but with deprecation notice
     }),
     defineField({
       name: "contentTypes",
-      title: "Content Types",
+      title: "Content Types (Deprecated)",
       type: "array",
       of: [{ type: "string" }],
-      initialValue: ["post", "page"],
       description:
-        "Sanity document types to match URLs against (e.g., post, page, article)",
+        "⚠️ DEPRECATED: Use 'URL Configurations' above instead. This field is kept for backward compatibility only. If both are present, URL Configurations takes precedence.",
+      hidden: false,
     }),
     defineField({
       name: "slugField",
-      title: "Slug Field",
+      title: "Slug Field (Deprecated)",
       type: "string",
-      initialValue: "slug",
-      description: "The field name containing the URL slug (default: slug)",
+      description:
+        "⚠️ DEPRECATED: Use 'URL Configurations' above instead. This field is kept for backward compatibility only. If both are present, URL Configurations takes precedence.",
+      hidden: false,
     }),
     defineField({
       name: "lastSyncedAt",
