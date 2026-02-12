@@ -25,6 +25,7 @@ export {
   URLMatcher,
   type MatchResult,
   type URLMatcherConfig,
+  type ContentTypeUrlConfig,
   type UnmatchReason,
   type MatchDiagnostics,
 } from "./url-matcher.js";

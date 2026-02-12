@@ -21,165 +21,236 @@ export interface MatchResult {
   matchedSlug?: string;
   unmatchReason: UnmatchReason;
   extractedSlug?: string;
+  matchedContentType?: string;
   diagnostics?: MatchDiagnostics;
 }
 
-export interface URLMatcherConfig {
-  contentTypes: string[];
+/**
+ * Configuration for a single content type's URL structure
+ */
+export interface ContentTypeUrlConfig {
+  contentType: string;
+  pathPrefix?: string;
   slugField: string;
+}
+
+/**
+ * URLMatcher configuration with support for multiple content types and path structures
+ * @deprecated If using the old flat structure (contentTypes, slugField, pathPrefix),
+ * migrate to urlConfigs for more flexible URL path handling.
+ */
+export interface URLMatcherConfig {
+  /** New format: array of per-content-type URL configs (recommended) */
+  urlConfigs?: ContentTypeUrlConfig[];
+  /** @deprecated Use urlConfigs instead. Kept for backward compatibility. */
+  contentTypes?: string[];
+  /** @deprecated Use urlConfigs instead. Kept for backward compatibility. */
+  slugField?: string;
+  /** @deprecated Use urlConfigs instead. Kept for backward compatibility. */
   pathPrefix?: string;
   baseUrl: string;
 }
 
 interface SanityDocument {
   _id: string;
+  _type: string;
   _createdAt: string;
   [key: string]: unknown;
 }
 
 export class URLMatcher {
+  private normalizedConfigs: ContentTypeUrlConfig[];
+
   constructor(
     private sanityClient: SanityClient,
     private config: URLMatcherConfig,
-  ) {}
+  ) {
+    // Normalize config: convert old format to new format if needed
+    if (config.urlConfigs) {
+      this.normalizedConfigs = config.urlConfigs;
+    } else if (config.contentTypes) {
+      // Backward compatibility: convert old flat format to new format
+      console.warn(
+        "[URLMatcher] Deprecated: contentTypes, slugField, and pathPrefix are deprecated. " +
+          "Please use urlConfigs instead for more flexible URL path handling per content type.",
+      );
+      this.normalizedConfigs = config.contentTypes.map((contentType) => ({
+        contentType,
+        slugField: config.slugField || "slug",
+        pathPrefix: config.pathPrefix,
+      }));
+    } else {
+      throw new Error(
+        "URLMatcher requires either 'urlConfigs' (new format) or 'contentTypes' (deprecated format)",
+      );
+    }
+  }
 
   async matchUrls(gscUrls: string[]): Promise<MatchResult[]> {
-    const query = `*[_type in $types]{
-      _id,
-      _type,
-      "${this.config.slugField}": ${this.config.slugField}.current,
-      _createdAt
-    }`;
-    const documents: SanityDocument[] = await this.sanityClient.fetch(query, {
-      types: this.config.contentTypes,
-    });
-
-    const slugToDoc = new Map<string, { _id: string; _createdAt: string }>();
+    // Query documents for each content type with its configured slug field
+    const slugToDocMap = new Map<
+      string,
+      { _id: string; _createdAt: string; contentType: string }
+    >();
     const allSlugs: string[] = [];
-    for (const doc of documents) {
-      const slug = doc[this.config.slugField] as string | undefined;
-      if (slug) {
-        const normalized = this.normalizeSlug(slug);
-        slugToDoc.set(normalized, doc);
-        allSlugs.push(normalized);
+
+    for (const urlConfig of this.normalizedConfigs) {
+      const query = `*[_type == $type]{
+        _id,
+        _type,
+        "${urlConfig.slugField}": ${urlConfig.slugField}.current,
+        _createdAt
+      }`;
+      const documents: SanityDocument[] = await this.sanityClient.fetch(query, {
+        type: urlConfig.contentType,
+      });
+
+      for (const doc of documents) {
+        const slug = doc[urlConfig.slugField] as string | undefined;
+        if (slug) {
+          const normalized = this.normalizeSlug(slug);
+          const key = `${urlConfig.contentType}:${normalized}`;
+          slugToDocMap.set(key, {
+            _id: doc._id,
+            _createdAt: doc._createdAt,
+            contentType: urlConfig.contentType,
+          });
+          allSlugs.push(normalized);
+        }
       }
     }
 
-    return gscUrls.map((url) => this.matchSingleUrl(url, slugToDoc, allSlugs));
+    return gscUrls.map((url) =>
+      this.matchSingleUrl(url, slugToDocMap, allSlugs),
+    );
   }
 
   /**
    * Get all available slugs from Sanity for diagnostic purposes
    */
   async getAvailableSlugs(): Promise<string[]> {
-    const query = `*[_type in $types]{
-      "${this.config.slugField}": ${this.config.slugField}.current
-    }`;
-    const documents: SanityDocument[] = await this.sanityClient.fetch(query, {
-      types: this.config.contentTypes,
-    });
+    const allSlugs: string[] = [];
 
-    return documents
-      .map((doc) => doc[this.config.slugField] as string | undefined)
-      .filter((slug): slug is string => !!slug)
-      .map((slug) => this.normalizeSlug(slug));
+    for (const urlConfig of this.normalizedConfigs) {
+      const query = `*[_type == $type]{
+        "${urlConfig.slugField}": ${urlConfig.slugField}.current
+      }`;
+      const documents: SanityDocument[] = await this.sanityClient.fetch(query, {
+        type: urlConfig.contentType,
+      });
+
+      const slugs = documents
+        .map((doc) => doc[urlConfig.slugField] as string | undefined)
+        .filter((slug): slug is string => !!slug)
+        .map((slug) => this.normalizeSlug(slug));
+
+      allSlugs.push(...slugs);
+    }
+
+    return allSlugs;
   }
 
   private matchSingleUrl(
     gscUrl: string,
-    slugToDoc: Map<string, { _id: string; _createdAt: string }>,
+    slugToDocMap: Map<
+      string,
+      { _id: string; _createdAt: string; contentType: string }
+    >,
     allSlugs: string[],
   ): MatchResult {
     const normalized = this.normalizeUrl(gscUrl);
-    const extractionResult = this.extractSlugWithDiagnostics(normalized);
 
-    // Check if URL is outside path prefix
-    if (extractionResult.outsidePrefix) {
-      return {
-        gscUrl,
-        sanityId: undefined,
-        confidence: "none",
-        unmatchReason: "outside_path_prefix",
-        diagnostics: {
-          normalizedUrl: normalized,
-          pathAfterPrefix: null,
-          configuredPrefix: this.config.pathPrefix ?? null,
-          availableSlugsCount: slugToDoc.size,
-          similarSlugs: [],
-        },
-      };
+    // Try to match against each content type's path prefix
+    for (const urlConfig of this.normalizedConfigs) {
+      const extractionResult = this.extractSlugWithDiagnostics(
+        normalized,
+        urlConfig.pathPrefix,
+      );
+
+      if (extractionResult.outsidePrefix) {
+        continue; // Try next content type
+      }
+
+      const slug = extractionResult.slug;
+
+      if (!slug) {
+        continue; // Try next content type
+      }
+
+      // Try exact match
+      const key = `${urlConfig.contentType}:${slug}`;
+      const exactMatch = slugToDocMap.get(key);
+      if (exactMatch) {
+        return {
+          gscUrl,
+          sanityId: exactMatch._id,
+          confidence: "exact",
+          matchedSlug: slug,
+          matchedContentType: urlConfig.contentType,
+          unmatchReason: "matched",
+          extractedSlug: slug,
+        };
+      }
+
+      // Try without trailing slash
+      const withoutTrailing = slug.replace(/\/$/, "");
+      const keyWithoutTrailing = `${urlConfig.contentType}:${withoutTrailing}`;
+      const trailingMatch = slugToDocMap.get(keyWithoutTrailing);
+      if (trailingMatch) {
+        return {
+          gscUrl,
+          sanityId: trailingMatch._id,
+          confidence: "normalized",
+          matchedSlug: withoutTrailing,
+          matchedContentType: urlConfig.contentType,
+          unmatchReason: "matched",
+          extractedSlug: slug,
+        };
+      }
+
+      // Try with trailing slash
+      const withTrailing = slug + "/";
+      const keyWithTrailing = `${urlConfig.contentType}:${withTrailing}`;
+      const addedTrailingMatch = slugToDocMap.get(keyWithTrailing);
+      if (addedTrailingMatch) {
+        return {
+          gscUrl,
+          sanityId: addedTrailingMatch._id,
+          confidence: "normalized",
+          matchedSlug: withTrailing,
+          matchedContentType: urlConfig.contentType,
+          unmatchReason: "matched",
+          extractedSlug: slug,
+        };
+      }
     }
 
-    const slug = extractionResult.slug;
+    // No match found across any content type - return diagnostic info
+    const firstConfig = this.normalizedConfigs[0];
+    const firstExtractionResult = this.extractSlugWithDiagnostics(
+      normalized,
+      firstConfig?.pathPrefix,
+    );
 
-    if (!slug) {
-      return {
-        gscUrl,
-        sanityId: undefined,
-        confidence: "none",
-        unmatchReason: "no_slug_extracted",
-        diagnostics: {
-          normalizedUrl: normalized,
-          pathAfterPrefix: extractionResult.pathAfterPrefix,
-          configuredPrefix: this.config.pathPrefix ?? null,
-          availableSlugsCount: slugToDoc.size,
-          similarSlugs: [],
-        },
-      };
-    }
-
-    const exactMatch = slugToDoc.get(slug);
-    if (exactMatch) {
-      return {
-        gscUrl,
-        sanityId: exactMatch._id,
-        confidence: "exact",
-        matchedSlug: slug,
-        unmatchReason: "matched",
-        extractedSlug: slug,
-      };
-    }
-
-    const withoutTrailing = slug.replace(/\/$/, "");
-    const trailingMatch = slugToDoc.get(withoutTrailing);
-    if (trailingMatch) {
-      return {
-        gscUrl,
-        sanityId: trailingMatch._id,
-        confidence: "normalized",
-        matchedSlug: withoutTrailing,
-        unmatchReason: "matched",
-        extractedSlug: slug,
-      };
-    }
-
-    const withTrailing = slug + "/";
-    const addedTrailingMatch = slugToDoc.get(withTrailing);
-    if (addedTrailingMatch) {
-      return {
-        gscUrl,
-        sanityId: addedTrailingMatch._id,
-        confidence: "normalized",
-        matchedSlug: withTrailing,
-        unmatchReason: "matched",
-        extractedSlug: slug,
-      };
-    }
-
-    // No match found - find similar slugs for suggestions
-    const similarSlugs = this.findSimilarSlugs(slug, allSlugs, 3);
+    const similarSlugs = this.findSimilarSlugs(
+      firstExtractionResult.slug || "",
+      allSlugs,
+      3,
+    );
 
     return {
       gscUrl,
       sanityId: undefined,
       confidence: "none",
-      unmatchReason: "no_matching_document",
-      extractedSlug: slug,
+      unmatchReason: firstExtractionResult.outsidePrefix
+        ? "outside_path_prefix"
+        : "no_matching_document",
+      extractedSlug: firstExtractionResult.slug,
       diagnostics: {
         normalizedUrl: normalized,
-        pathAfterPrefix: extractionResult.pathAfterPrefix,
-        configuredPrefix: this.config.pathPrefix ?? null,
-        availableSlugsCount: slugToDoc.size,
+        pathAfterPrefix: firstExtractionResult.pathAfterPrefix,
+        configuredPrefix: firstConfig?.pathPrefix ?? null,
+        availableSlugsCount: slugToDocMap.size,
         similarSlugs,
       },
     };
@@ -197,11 +268,10 @@ export class URLMatcher {
     }
   }
 
-  private extractSlug(normalizedUrl: string): string | undefined {
-    return this.extractSlugWithDiagnostics(normalizedUrl).slug;
-  }
-
-  private extractSlugWithDiagnostics(normalizedUrl: string): {
+  private extractSlugWithDiagnostics(
+    normalizedUrl: string,
+    pathPrefix?: string,
+  ): {
     slug: string | undefined;
     pathAfterPrefix: string | null;
     outsidePrefix: boolean;
@@ -211,10 +281,8 @@ export class URLMatcher {
       let path = parsed.pathname;
 
       // Check if the URL is outside the configured path prefix
-      if (this.config.pathPrefix) {
-        const prefixRegex = new RegExp(
-          `^${this.escapeRegex(this.config.pathPrefix)}(/|$)`,
-        );
+      if (pathPrefix) {
+        const prefixRegex = new RegExp(`^${this.escapeRegex(pathPrefix)}(/|$)`);
         if (!prefixRegex.test(path)) {
           return {
             slug: undefined,
@@ -223,7 +291,7 @@ export class URLMatcher {
           };
         }
         path = path.replace(
-          new RegExp(`^${this.escapeRegex(this.config.pathPrefix)}`),
+          new RegExp(`^${this.escapeRegex(pathPrefix)}`),
           "",
         );
       }
