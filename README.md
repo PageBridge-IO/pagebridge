@@ -20,14 +20,6 @@
 
 ---
 
-## The Problem
-
-Your best content is already decaying.
-
-Articles silently drop from Position 3 to Position 12 over months. Nobody notices until traffic is gone. Search data lives in Google. Content lives in Sanity. Your team wastes time cross-referencing tabs instead of editing.
-
-PageBridge fixes this by bringing search intelligence directly into your CMS.
-
 ## How It Works
 
 ```
