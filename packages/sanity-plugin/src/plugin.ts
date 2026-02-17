@@ -1,4 +1,4 @@
-import { lazy } from "react";
+import { lazy, Suspense, createElement } from "react";
 import { definePlugin } from "sanity";
 import type {
   DefaultDocumentNodeResolver,
@@ -21,6 +21,14 @@ const LazySearchPerformancePane = lazy(() =>
     default: m.SearchPerformancePane,
   })),
 );
+
+function SearchPerformancePaneWrapper(props: { documentId: string; schemaType?: string | { name: string } }) {
+  return createElement(Suspense, { fallback: null }, createElement(LazySearchPerformancePane, props));
+}
+
+function InsightsDashboardToolWrapper(props: Record<string, never>) {
+  return createElement(Suspense, { fallback: null }, createElement(LazyInsightsDashboardTool, props));
+}
 
 export interface PageBridgePluginConfig {
   /**
@@ -101,7 +109,7 @@ export const createPageBridgeStructureResolver = (
       return S.document().views([
         S.view.form(),
         S.view
-          .component(LazySearchPerformancePane)
+          .component(SearchPerformancePaneWrapper)
           .title("Performance")
           .icon(ChartUpwardIcon),
       ]);
@@ -135,7 +143,7 @@ export const pageBridgePlugin = definePlugin<PageBridgePluginConfig | void>((con
       {
         name: "gsc-insights",
         title: "SEO Insights",
-        component: LazyInsightsDashboardTool,
+        component: InsightsDashboardToolWrapper,
       },
     ],
   };
