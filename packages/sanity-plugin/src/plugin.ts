@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import { definePlugin } from "sanity";
 import type {
   DefaultDocumentNodeResolver,
@@ -8,7 +9,18 @@ import { gscSite } from "./schemas/gscSite";
 import { createGscSnapshot } from "./schemas/gscSnapshot";
 import { createGscRefreshTask } from "./schemas/gscRefreshTask";
 import { createGscSiteInsight } from "./schemas/gscSiteInsight";
-import type { ComponentType } from "react";
+import { InsightBadge } from "./components/InsightBadge";
+
+const LazyInsightsDashboardTool = lazy(() =>
+  import("./components/InsightsDashboardTool").then((m) => ({
+    default: m.InsightsDashboardTool,
+  })),
+);
+const LazySearchPerformancePane = lazy(() =>
+  import("./components/SearchPerformancePane").then((m) => ({
+    default: m.SearchPerformancePane,
+  })),
+);
 
 export interface PageBridgePluginConfig {
   /**
@@ -86,14 +98,10 @@ export const createPageBridgeStructureResolver = (
 ): DefaultDocumentNodeResolver => {
   return (S, { schemaType }) => {
     if (contentTypes.includes(schemaType)) {
-      // Lazy import to avoid loading React component during schema extraction
-      const SearchPerformancePane: ComponentType<any> =
-        require("./components/SearchPerformancePane").SearchPerformancePane;
-
       return S.document().views([
         S.view.form(),
         S.view
-          .component(SearchPerformancePane)
+          .component(LazySearchPerformancePane)
           .title("Performance")
           .icon(ChartUpwardIcon),
       ]);
@@ -108,12 +116,6 @@ export const pageBridgePlugin = definePlugin<PageBridgePluginConfig | void>((con
   const gscSnapshot = createGscSnapshot({ contentTypes });
   const gscRefreshTask = createGscRefreshTask({ contentTypes });
   const gscSiteInsight = createGscSiteInsight({ contentTypes });
-
-  // Lazy imports to avoid loading React components during schema extraction
-  const InsightsDashboardTool: ComponentType<any> =
-    require("./components/InsightsDashboardTool").InsightsDashboardTool;
-
-  const { InsightBadge } = require("./components/InsightBadge");
 
   return {
     name: "pagebridge-sanity",
@@ -133,7 +135,7 @@ export const pageBridgePlugin = definePlugin<PageBridgePluginConfig | void>((con
       {
         name: "gsc-insights",
         title: "SEO Insights",
-        component: InsightsDashboardTool,
+        component: LazyInsightsDashboardTool,
       },
     ],
   };
