@@ -89,14 +89,17 @@ interface PerformanceData {
 
 interface SearchPerformancePaneProps {
   documentId: string;
+  schemaType?: string;
 }
 
 export function SearchPerformancePane({
   documentId,
+  schemaType,
 }: SearchPerformancePaneProps) {
   const client = useClient({ apiVersion: SANITY_API_VERSION });
   const [data, setData] = useState<PerformanceData | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -140,12 +143,21 @@ export function SearchPerformancePane({
           lastUpdated: snapshot.fetchedAt,
           indexStatus: snapshot.indexStatus,
         });
+      } else if (schemaType) {
+        // No snapshot — check if this document type is configured in any gscSite
+        const gscSite = await client.fetch(
+          `*[_type == "gscSite" && defined(urlConfigs) && $docType in urlConfigs[].contentType][0]{
+            siteUrl
+          }`,
+          { docType: schemaType },
+        );
+        setIsConfigured(!!gscSite);
       }
       setLoading(false);
     }
 
     fetchData();
-  }, [documentId, client]);
+  }, [documentId, schemaType, client]);
 
   if (loading) {
     return (
@@ -158,9 +170,31 @@ export function SearchPerformancePane({
   }
 
   if (!data) {
+    if (isConfigured) {
+      return (
+        <Card padding={4}>
+          <Stack space={3}>
+            <Text weight="semibold">Awaiting search data</Text>
+            <Text size={1} muted>
+              This page hasn't appeared in Google Search Console data yet. It
+              may not be indexed by Google or hasn't received any search
+              impressions.
+            </Text>
+          </Stack>
+        </Card>
+      );
+    }
+
     return (
       <Card padding={4} tone="caution">
-        <Text>No search data available for this document.</Text>
+        <Stack space={3}>
+          <Text weight="semibold">Not configured</Text>
+          <Text size={1} muted>
+            No GSC Site is configured to track documents of type
+            {schemaType ? ` "${schemaType}"` : " this type"}. Add a URL
+            configuration in your PageBridge GSC Site settings.
+          </Text>
+        </Stack>
       </Card>
     );
   }

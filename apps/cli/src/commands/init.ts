@@ -73,6 +73,14 @@ export const initCommand = new Command("init")
   .option("--skip-db-check", "Skip database connection test")
   .option("--skip-sanity-check", "Skip Sanity API test")
   .option("--skip-gsc-check", "Skip Google Search Console API test")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ pagebridge init
+  $ pagebridge init --skip-db-check --skip-sanity-check
+`,
+  )
   .action(async (options) => {
     log.info("🚀 PageBridge Interactive Setup\n");
 
@@ -319,28 +327,16 @@ ${newLines.join("\n")}
       }
     }
 
-    // Offer to run first sync
+    // Show available sites and sync command
     if (credentials) {
-      const runSync = await confirmPrompt(
-        "Would you like to run your first sync now?",
-        false,
-      );
-
-      if (runSync) {
+      try {
         const sites = await new GSCClient({ credentials }).listSites();
-        if (sites.length === 0) {
-          log.warn("No sites found in your Search Console account.");
-        } else if (sites.length === 1) {
-          log.info(`\nUsing site: ${sites[0]}`);
-          // Note: You'd import and call the sync command here
-          log.info(`Run: pagebridge sync --site "${sites[0]}" --migrate`);
-        } else {
-          log.info("\nAvailable sites:");
+        if (sites.length > 0) {
+          log.info("\nAvailable GSC sites:");
           sites.forEach((site, i) => log.info(`  ${i + 1}. ${site}`));
-          const siteChoice = await prompt("\nEnter site number or full URL");
-          const selectedSite = sites[parseInt(siteChoice) - 1] || siteChoice;
-          log.info(`\nRun: pagebridge sync --site "${selectedSite}" --migrate`);
         }
+      } catch {
+        // GSC listing failed — skip, user can discover sites later
       }
     }
 
@@ -351,4 +347,5 @@ ${newLines.join("\n")}
     log.info("  3. Open Sanity Studio to see your performance data\n");
 
     rl.close();
+    process.exit(0);
   });

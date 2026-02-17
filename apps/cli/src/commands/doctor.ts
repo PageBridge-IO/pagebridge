@@ -12,7 +12,7 @@ import {
 } from "@pagebridge/db";
 import { resolve } from "../resolve-config.js";
 import { log } from "../logger.js";
-import { existsSync, readFileSync } from "fs";
+import { existsSync } from "fs";
 import { resolve as resolvePath } from "path";
 
 const ENV_FILES = [".env.local", ".env"] as const;
@@ -24,38 +24,14 @@ interface CheckResult {
   details?: string;
 }
 
-function loadEnvFile(filePath: string): void {
-  const content = readFileSync(filePath, "utf-8");
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eqIndex = trimmed.indexOf("=");
-    if (eqIndex === -1) continue;
-    const key = trimmed.slice(0, eqIndex).trim();
-    let value = trimmed.slice(eqIndex + 1).trim();
-    // Strip surrounding quotes
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    // Don't overwrite existing env vars
-    if (process.env[key] === undefined) {
-      process.env[key] = value;
-    }
-  }
-}
-
 async function checkEnvFile(): Promise<CheckResult> {
   for (const name of ENV_FILES) {
     const envPath = resolvePath(process.cwd(), name);
     if (existsSync(envPath)) {
-      loadEnvFile(envPath);
       return {
         name: "Environment File",
         status: "pass",
-        message: `${name} file found and loaded`,
+        message: `${name} file found`,
       };
     }
   }
@@ -127,7 +103,9 @@ async function checkDatabase(): Promise<CheckResult> {
   }
 }
 
-async function checkDatabaseSchema(): Promise<CheckResult> {
+async function checkDatabaseSchema(
+  shouldMigrate: boolean,
+): Promise<CheckResult> {
   const dbUrl = resolve(undefined, "DATABASE_URL");
   if (!dbUrl) {
     return {
@@ -149,13 +127,39 @@ async function checkDatabaseSchema(): Promise<CheckResult> {
       { name: "unmatch_diagnostics", table: unmatchDiagnostics },
     ];
 
-    const missingTables: string[] = [];
+    let missingTables: string[] = [];
 
     for (const { name, table } of tables) {
       try {
         await db.select().from(table).limit(1);
       } catch {
         missingTables.push(name);
+      }
+    }
+
+    if (missingTables.length > 0 && shouldMigrate) {
+      log.info("   Running migrations...");
+      try {
+        const { migrateIfRequested } = await import("../migrate.js");
+        await migrateIfRequested(true, dbUrl);
+
+        // Re-check tables after migration
+        missingTables = [];
+        for (const { name, table } of tables) {
+          try {
+            await db.select().from(table).limit(1);
+          } catch {
+            missingTables.push(name);
+          }
+        }
+      } catch (error) {
+        await close();
+        return {
+          name: "Database Schema",
+          status: "fail",
+          message: "Migration failed",
+          details: error instanceof Error ? error.message : String(error),
+        };
       }
     }
 
@@ -166,14 +170,16 @@ async function checkDatabaseSchema(): Promise<CheckResult> {
         name: "Database Schema",
         status: "fail",
         message: `Missing ${missingTables.length} tables`,
-        details: `Run 'pnpm db:push' or 'pagebridge sync --migrate'. Missing: ${missingTables.join(", ")}`,
+        details: `Run 'pagebridge doctor --migrate' or 'pagebridge sync --migrate'. Missing: ${missingTables.join(", ")}`,
       };
     }
 
     return {
       name: "Database Schema",
       status: "pass",
-      message: "All tables exist",
+      message: shouldMigrate
+        ? "All tables exist (after migration)"
+        : "All tables exist",
     };
   } catch (error) {
     return {
@@ -336,15 +342,29 @@ function getStatusIcon(status: CheckResult["status"]): string {
 export const doctorCommand = new Command("doctor")
   .description("Diagnose PageBridge setup and configuration issues")
   .option("--verbose", "Show detailed information")
+  .option("--json", "Output results as JSON")
+  .option("--migrate", "Run database migrations if tables are missing")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ pagebridge doctor
+  $ pagebridge doctor --verbose
+  $ pagebridge doctor --migrate
+  $ pagebridge doctor --json
+`,
+  )
   .action(async (options) => {
     log.info("🏥 PageBridge Health Check\n");
+
+    const shouldMigrate = !!options.migrate;
 
     const checks: Array<() => Promise<CheckResult>> = [
       checkNodeVersion,
       checkEnvFile,
       checkEnvVars,
       checkDatabase,
-      checkDatabaseSchema,
+      () => checkDatabaseSchema(shouldMigrate),
       checkSanity,
       checkGoogleServiceAccount,
       checkGSCAccess,
@@ -357,17 +377,19 @@ export const doctorCommand = new Command("doctor")
         const result = await check();
         results.push(result);
 
-        const icon = getStatusIcon(result.status);
-        log.info(`${icon} ${result.name}: ${result.message}`);
+        if (!options.json) {
+          const icon = getStatusIcon(result.status);
+          log.info(`${icon} ${result.name}: ${result.message}`);
 
-        if (options.verbose && result.details) {
-          log.info(`   ${result.details}`);
-        } else if (
-          !options.verbose &&
-          result.status === "fail" &&
-          result.details
-        ) {
-          log.info(`   ${result.details}`);
+          if (options.verbose && result.details) {
+            log.info(`   ${result.details}`);
+          } else if (
+            !options.verbose &&
+            result.status === "fail" &&
+            result.details
+          ) {
+            log.info(`   ${result.details}`);
+          }
         }
       } catch (error) {
         results.push({
@@ -384,6 +406,17 @@ export const doctorCommand = new Command("doctor")
     const failed = results.filter((r) => r.status === "fail").length;
     const warned = results.filter((r) => r.status === "warn").length;
     const skipped = results.filter((r) => r.status === "skip").length;
+
+    if (options.json) {
+      console.log(
+        JSON.stringify(
+          { results, summary: { passed, failed, warned, skipped } },
+          null,
+          2,
+        ),
+      );
+      process.exit(failed > 0 ? 1 : 0);
+    }
 
     log.info("\n📊 Summary:");
     log.info(`   ✅ Passed: ${passed}`);
