@@ -16,12 +16,11 @@ import {
   daysAgo,
   type SnapshotInsights,
   type MatchResult,
-  type UnmatchReason,
   type DecaySignal,
-  type URLMatcherConfig,
 } from "@pagebridge/core";
 import { createDb, sql, unmatchDiagnostics } from "@pagebridge/db";
 import { resolve, requireConfig } from "../resolve-config.js";
+import { normalizeUrlConfigs } from "../normalize-url-configs.js";
 import { log } from "../logger.js";
 import { migrateIfRequested } from "../migrate.js";
 
@@ -44,8 +43,6 @@ export const syncCommand = new Command("sync")
   .option("--skip-tasks", "Only sync data, do not generate tasks")
   .option("--check-index", "Check Google index status for matched pages")
   .option("--quiet-period <days>", "Ignore pages published within N days", "45")
-  .option("--diagnose", "Show detailed diagnostics for unmatched URLs")
-  .option("--diagnose-url <url>", "Diagnose why a specific URL is not matching")
   .option(
     "--skip-insights",
     "Skip insight analysis (quick wins, etc.) for faster sync",
@@ -58,6 +55,16 @@ export const syncCommand = new Command("sync")
   .option("--sanity-dataset <name>", "Sanity dataset name")
   .option("--sanity-token <token>", "Sanity API token")
   .option("--site-url <url>", "Your website base URL for URL matching")
+  .addHelpText(
+    "after",
+    `
+Examples:
+  $ pagebridge sync --site sc-domain:example.com
+  $ pagebridge sync --site sc-domain:example.com --dry-run
+  $ pagebridge sync --site sc-domain:example.com --migrate --debug
+  $ pagebridge sync --site sc-domain:example.com --skip-insights --skip-tasks
+`,
+  )
   .action(async (options) => {
     const timer = createTimer(options.debug);
     const syncStartTime = timer.start();
@@ -230,36 +237,7 @@ export const syncCommand = new Command("sync")
 
     const siteId = siteDoc._id;
 
-    // Normalize configuration: migrate from old format if needed
-    let urlConfigs: Array<{
-      contentType: string;
-      pathPrefix?: string;
-      slugField: string;
-    }> = [];
-
-    if (siteDoc.urlConfigs) {
-      urlConfigs = siteDoc.urlConfigs.map((config) => ({
-        contentType: config.contentType,
-        pathPrefix: config.pathPrefix,
-        slugField: config.slugField ?? "slug",
-      }));
-    } else if (siteDoc.contentTypes) {
-      log.warn(
-        `[DEPRECATED] Using old configuration format (contentTypes, slugField, pathPrefix). ` +
-          `Please update your gscSite document to use 'urlConfigs' for more flexible URL path handling. ` +
-          `See https://pagebridge.io/docs/migration for details.`,
-      );
-      urlConfigs = siteDoc.contentTypes.map((contentType: string) => ({
-        contentType,
-        slugField: siteDoc.slugField ?? "slug",
-        pathPrefix: siteDoc.pathPrefix,
-      }));
-    } else {
-      urlConfigs = [
-        { contentType: "post", slugField: "slug" },
-        { contentType: "page", slugField: "slug" },
-      ];
-    }
+    const urlConfigs = normalizeUrlConfigs(siteDoc);
 
     log.info(`Configuration:`);
     for (const config of urlConfigs) {
@@ -351,81 +329,9 @@ export const syncCommand = new Command("sync")
           .commit();
         timer.end("Store unmatched diagnostics", t);
 
-        // Show detailed diagnostics if --diagnose flag is set
-        if (options.diagnose) {
-          log.info(`\nUnmatched URL Diagnostics:\n`);
-
-          // Group by reason
-          const byReason = new Map<UnmatchReason, MatchResult[]>();
-          for (const u of unmatched) {
-            const existing = byReason.get(u.unmatchReason) ?? [];
-            existing.push(u);
-            byReason.set(u.unmatchReason, existing);
-          }
-
-          for (const [reason, urls] of byReason) {
-            log.info(
-              `  ${getReasonEmoji(reason)} ${getReasonDescription(reason)} (${urls.length}):`,
-            );
-            const toShow = urls.slice(0, 5);
-            for (const u of toShow) {
-              log.info(`     ${u.gscUrl}`);
-              if (u.extractedSlug) {
-                log.info(`        Extracted slug: "${u.extractedSlug}"`);
-              }
-              if (u.diagnostics?.similarSlugs?.length) {
-                log.info(`        Similar slugs in Sanity:`);
-                for (const similar of u.diagnostics.similarSlugs) {
-                  log.info(`          - ${similar}`);
-                }
-              }
-            }
-            if (urls.length > 5) {
-              log.info(`     ... and ${urls.length - 5} more`);
-            }
-          }
-        } else if (unmatched.length <= 10) {
-          unmatched.forEach((u) => log.info(`   - ${u.gscUrl}`));
-          log.info(`\n   Run with --diagnose for detailed diagnostics`);
-        } else {
-          log.info(`   Run with --diagnose to see detailed diagnostics`);
-        }
-      }
-
-      // Handle --diagnose-url for a specific URL
-      if (options.diagnoseUrl) {
-        const targetUrl = options.diagnoseUrl as string;
-        const allUrls = [targetUrl];
-        const [result] = await matcher.matchUrls(allUrls);
-        log.info(`\nDiagnostics for: ${targetUrl}\n`);
-        if (result) {
-          log.info(`   Matched: ${result.sanityId ? "Yes" : "No"}`);
-          log.info(`   Reason: ${getReasonDescription(result.unmatchReason)}`);
-          if (result.extractedSlug) {
-            log.info(`   Extracted slug: "${result.extractedSlug}"`);
-          }
-          if (result.matchedSlug) {
-            log.info(`   Matched to Sanity slug: "${result.matchedSlug}"`);
-          }
-          if (result.diagnostics) {
-            log.info(`   Normalized URL: ${result.diagnostics.normalizedUrl}`);
-            log.info(
-              `   Path after prefix: ${result.diagnostics.pathAfterPrefix}`,
-            );
-            log.info(
-              `   Configured prefix: ${result.diagnostics.configuredPrefix ?? "(none)"}`,
-            );
-            log.info(
-              `   Available Sanity slugs: ${result.diagnostics.availableSlugsCount}`,
-            );
-            if (result.diagnostics.similarSlugs?.length) {
-              log.info(`   Similar slugs in Sanity:`);
-              for (const similar of result.diagnostics.similarSlugs) {
-                log.info(`      - ${similar}`);
-              }
-            }
-          }
-        }
+        log.info(
+          `   Run 'pagebridge diagnose --site ${options.site}' for detailed diagnostics`,
+        );
       }
 
       // Check index status if requested
@@ -692,32 +598,3 @@ async function getDocumentDates(
   return map;
 }
 
-function getReasonEmoji(reason: UnmatchReason): string {
-  switch (reason) {
-    case "matched":
-      return "[OK]";
-    case "no_slug_extracted":
-      return "[SLUG]";
-    case "no_matching_document":
-      return "[DOC]";
-    case "outside_path_prefix":
-      return "[PREFIX]";
-    default:
-      return "[?]";
-  }
-}
-
-function getReasonDescription(reason: UnmatchReason): string {
-  switch (reason) {
-    case "matched":
-      return "Successfully matched";
-    case "no_slug_extracted":
-      return "Could not extract slug from URL";
-    case "no_matching_document":
-      return "No Sanity document with matching slug";
-    case "outside_path_prefix":
-      return "URL outside configured path prefix";
-    default:
-      return "Unknown reason";
-  }
-}

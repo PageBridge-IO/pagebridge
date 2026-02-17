@@ -1,3 +1,5 @@
+import { log } from "./logger.js";
+
 /**
  * Resolves a config value from:
  *  1. CLI option (highest priority)
@@ -15,27 +17,41 @@ export function resolve(
   );
 }
 
-interface ConfigEntry {
+export interface ConfigEntry {
   name: string;
   flag: string;
   envVar: string;
   value: string | undefined;
 }
 
+export class MissingConfigError extends Error {
+  constructor(missing: ConfigEntry[]) {
+    const lines = ["Missing required configuration."];
+    for (const entry of missing) {
+      lines.push(`  ${entry.name}`);
+      lines.push(
+        `    ${entry.flag}  or  PAGEBRIDGE_${entry.envVar} / ${entry.envVar} env var`,
+      );
+    }
+    super(lines.join("\n"));
+    this.name = "MissingConfigError";
+  }
+}
+
 /**
  * Validates that all required config entries have values.
- * If any are missing, prints a clear error listing every missing entry and exits.
+ * If any are missing, logs the error details and throws MissingConfigError.
  */
 export function requireConfig(entries: ConfigEntry[]): void {
   const missing = entries.filter((e) => !e.value);
   if (missing.length === 0) return;
 
-  console.error("Error: Missing required configuration.\n");
+  log.error("Missing required configuration.\n");
   for (const entry of missing) {
-    console.error(`  ${entry.name}`);
-    console.error(
+    log.error(`  ${entry.name}`);
+    log.error(
       `    ${entry.flag}  or  PAGEBRIDGE_${entry.envVar} / ${entry.envVar} env var\n`,
     );
   }
-  process.exit(1);
+  throw new MissingConfigError(missing);
 }
