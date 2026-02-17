@@ -89,17 +89,24 @@ interface PerformanceData {
 
 interface SearchPerformancePaneProps {
   documentId: string;
-  schemaType?: string;
+  // Sanity passes schemaType as a SchemaType object, not a plain string
+  schemaType?: string | { name: string };
 }
 
 export function SearchPerformancePane({
   documentId,
-  schemaType,
+  schemaType: schemaTypeProp,
 }: SearchPerformancePaneProps) {
   const client = useClient({ apiVersion: SANITY_API_VERSION });
   const [data, setData] = useState<PerformanceData | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
+
+  // Extract string name — Sanity may pass a SchemaType object or a string
+  const schemaType =
+    typeof schemaTypeProp === "string"
+      ? schemaTypeProp
+      : schemaTypeProp?.name;
 
   useEffect(() => {
     async function fetchData() {
