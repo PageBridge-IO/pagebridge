@@ -1,5 +1,14 @@
+import { useState } from "react";
 import { Card, Stack, Text, Badge, Box, Flex } from "@sanity/ui";
-import { BoltIcon } from "@sanity/icons";
+import { BoltIcon, ChevronDownIcon, ChevronRightIcon } from "@sanity/icons";
+
+interface QuickWinQueryDetail {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
 
 interface QuickWinEntry {
   page: string;
@@ -8,6 +17,7 @@ interface QuickWinEntry {
   queryCount: number;
   impressions: number;
   position: number;
+  queries?: QuickWinQueryDetail[];
 }
 
 interface NewKeyword {
@@ -27,6 +37,20 @@ export function OpportunitiesTab({
   quickWins,
   newKeywords,
 }: OpportunitiesTabProps) {
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
+  const toggleRow = (index: number) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
   return (
     <Stack space={5}>
       {quickWins.length > 0 && (
@@ -39,7 +63,8 @@ export function OpportunitiesTab({
               </Text>
             </Flex>
             <Text size={0} muted>
-              Pages with queries at positions 8-20 — small content tweaks could push these to page 1
+              Pages with queries at positions 8-20 — small content tweaks could
+              push these to page 1. Click a row to see keywords.
             </Text>
             <Box>
               <table
@@ -55,6 +80,16 @@ export function OpportunitiesTab({
                       borderBottom: "1px solid var(--card-border-color)",
                     }}
                   >
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "4px 0",
+                        fontWeight: 600,
+                        fontSize: "var(--font-size-0)",
+                        color: "var(--card-muted-fg-color)",
+                        width: "20px",
+                      }}
+                    />
                     <th
                       style={{
                         textAlign: "left",
@@ -83,49 +118,195 @@ export function OpportunitiesTab({
                   </tr>
                 </thead>
                 <tbody>
-                  {quickWins.slice(0, 20).map((entry, i) => (
-                    <tr key={i}>
-                      <td
-                        style={{
-                          padding: "6px 8px 6px 0",
-                          maxWidth: 0,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {entry.documentTitle || entry.page}
-                      </td>
-                      <td
-                        style={{
-                          textAlign: "right",
-                          padding: "6px 0 6px 8px",
-                          color: "var(--card-muted-fg-color)",
-                        }}
-                      >
-                        {entry.queryCount}
-                      </td>
-                      <td
-                        style={{
-                          textAlign: "right",
-                          padding: "6px 0 6px 8px",
-                          color: "var(--card-muted-fg-color)",
-                        }}
-                      >
-                        {entry.impressions.toLocaleString()}
-                      </td>
-                      <td
-                        style={{
-                          textAlign: "right",
-                          padding: "6px 0 6px 8px",
-                        }}
-                      >
-                        <Badge tone="primary" fontSize={0}>
-                          {entry.position.toFixed(1)}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
+                  {quickWins.slice(0, 20).map((entry, i) => {
+                    const isExpanded = expandedRows.has(i);
+                    const hasQueries =
+                      entry.queries && entry.queries.length > 0;
+                    return (
+                      <>
+                        <tr
+                          key={i}
+                          onClick={() => hasQueries && toggleRow(i)}
+                          style={{
+                            cursor: hasQueries ? "pointer" : "default",
+                            borderBottom: isExpanded
+                              ? "none"
+                              : undefined,
+                          }}
+                        >
+                          <td
+                            style={{
+                              padding: "6px 4px 6px 0",
+                              color: "var(--card-muted-fg-color)",
+                              width: "20px",
+                            }}
+                          >
+                            {hasQueries &&
+                              (isExpanded ? (
+                                <ChevronDownIcon />
+                              ) : (
+                                <ChevronRightIcon />
+                              ))}
+                          </td>
+                          <td
+                            style={{
+                              padding: "6px 8px 6px 0",
+                              maxWidth: 0,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {entry.documentTitle || entry.page}
+                          </td>
+                          <td
+                            style={{
+                              textAlign: "right",
+                              padding: "6px 0 6px 8px",
+                              color: "var(--card-muted-fg-color)",
+                            }}
+                          >
+                            {entry.queryCount}
+                          </td>
+                          <td
+                            style={{
+                              textAlign: "right",
+                              padding: "6px 0 6px 8px",
+                              color: "var(--card-muted-fg-color)",
+                            }}
+                          >
+                            {entry.impressions.toLocaleString()}
+                          </td>
+                          <td
+                            style={{
+                              textAlign: "right",
+                              padding: "6px 0 6px 8px",
+                            }}
+                          >
+                            <Badge tone="primary" fontSize={0}>
+                              {entry.position.toFixed(1)}
+                            </Badge>
+                          </td>
+                        </tr>
+                        {isExpanded && hasQueries && (
+                          <tr key={`${i}-queries`}>
+                            <td colSpan={5} style={{ padding: 0 }}>
+                              <Box
+                                paddingLeft={4}
+                                paddingRight={2}
+                                paddingBottom={3}
+                                paddingTop={1}
+                                style={{
+                                  borderBottom:
+                                    "1px solid var(--card-border-color)",
+                                }}
+                              >
+                                <table
+                                  style={{
+                                    width: "100%",
+                                    borderCollapse: "collapse",
+                                    fontSize: "var(--font-size-0)",
+                                  }}
+                                >
+                                  <thead>
+                                    <tr>
+                                      <th
+                                        style={{
+                                          textAlign: "left",
+                                          padding: "2px 0",
+                                          fontWeight: 600,
+                                          color:
+                                            "var(--card-muted-fg-color)",
+                                        }}
+                                      >
+                                        Keyword
+                                      </th>
+                                      {["Clicks", "Impr.", "CTR", "Pos."].map(
+                                        (h) => (
+                                          <th
+                                            key={h}
+                                            style={{
+                                              textAlign: "right",
+                                              padding: "2px 0 2px 8px",
+                                              fontWeight: 600,
+                                              color:
+                                                "var(--card-muted-fg-color)",
+                                            }}
+                                          >
+                                            {h}
+                                          </th>
+                                        ),
+                                      )}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {entry.queries!.map((q, qi) => (
+                                      <tr key={qi}>
+                                        <td
+                                          style={{
+                                            padding: "3px 8px 3px 0",
+                                            maxWidth: 0,
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
+                                          }}
+                                        >
+                                          {q.query}
+                                        </td>
+                                        <td
+                                          style={{
+                                            textAlign: "right",
+                                            padding: "3px 0 3px 8px",
+                                            color:
+                                              "var(--card-muted-fg-color)",
+                                          }}
+                                        >
+                                          {q.clicks.toLocaleString()}
+                                        </td>
+                                        <td
+                                          style={{
+                                            textAlign: "right",
+                                            padding: "3px 0 3px 8px",
+                                            color:
+                                              "var(--card-muted-fg-color)",
+                                          }}
+                                        >
+                                          {q.impressions.toLocaleString()}
+                                        </td>
+                                        <td
+                                          style={{
+                                            textAlign: "right",
+                                            padding: "3px 0 3px 8px",
+                                            color:
+                                              "var(--card-muted-fg-color)",
+                                          }}
+                                        >
+                                          {(q.ctr * 100).toFixed(1)}%
+                                        </td>
+                                        <td
+                                          style={{
+                                            textAlign: "right",
+                                            padding: "3px 0 3px 8px",
+                                          }}
+                                        >
+                                          <Badge
+                                            tone="primary"
+                                            fontSize={0}
+                                          >
+                                            {q.position.toFixed(1)}
+                                          </Badge>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </Box>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
                 </tbody>
               </table>
             </Box>

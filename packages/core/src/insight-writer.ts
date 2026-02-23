@@ -11,6 +11,7 @@ export interface QuickWinPageSummary {
   queryCount: number;
   totalImpressions: number;
   avgPosition: number;
+  queries: { query: string; clicks: number; impressions: number; ctr: number; position: number }[];
 }
 
 export class InsightWriter {
@@ -46,6 +47,14 @@ export class InsightWriter {
           queryCount: queries.length,
           totalImpressions,
           avgPosition,
+          queries: queries.map((q) => ({
+            _key: sanityKey(`qwq:${page}:${q.query}`),
+            query: q.query,
+            clicks: q.clicks,
+            impressions: q.impressions,
+            ctr: q.ctr,
+            position: q.position,
+          })),
         });
       }
       quickWinPages.sort((a, b) => b.totalImpressions - a.totalImpressions);

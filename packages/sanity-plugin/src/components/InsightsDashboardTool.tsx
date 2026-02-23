@@ -31,6 +31,14 @@ interface PageEntry {
   position?: number;
 }
 
+interface QuickWinQueryEntry {
+  query: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}
+
 interface QuickWinPageEntry {
   page: string;
   documentId?: string;
@@ -38,6 +46,7 @@ interface QuickWinPageEntry {
   queryCount: number;
   totalImpressions: number;
   avgPosition: number;
+  queries?: QuickWinQueryEntry[];
 }
 
 interface KeywordEntry {
@@ -242,6 +251,7 @@ function TabContent({
             queryCount: p.queryCount,
             impressions: p.totalImpressions,
             position: p.avgPosition,
+            queries: p.queries ?? [],
           }))}
           newKeywords={data?.newKeywordOpportunities ?? []}
         />

@@ -108,6 +108,23 @@ export const createGscSiteInsight = (options: GscSiteInsightOptions = {}) => {
               defineField({ name: "queryCount", type: "number" }),
               defineField({ name: "totalImpressions", type: "number" }),
               defineField({ name: "avgPosition", type: "number" }),
+              defineField({
+                name: "queries",
+                type: "array",
+                description: "Individual quick win queries for this page",
+                of: [
+                  {
+                    type: "object",
+                    fields: [
+                      defineField({ name: "query", type: "string" }),
+                      defineField({ name: "clicks", type: "number" }),
+                      defineField({ name: "impressions", type: "number" }),
+                      defineField({ name: "ctr", type: "number" }),
+                      defineField({ name: "position", type: "number" }),
+                    ],
+                  },
+                ],
+              }),
             ],
           },
         ],
